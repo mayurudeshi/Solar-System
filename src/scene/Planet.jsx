@@ -9,6 +9,10 @@ import {
 } from '../lib/orbital.js';
 import { useStore } from '../state/useStore.js';
 
+const TWO_PI = Math.PI * 2;
+const MS_PER_HOUR = 3600000;
+const SLOW_FACTOR = 10;
+
 function makeProceduralTexture(hex, banded) {
   const c = document.createElement('canvas');
   c.width = 256; c.height = 128;
@@ -49,9 +53,20 @@ function SaturnRings({ planetRadius }) {
   );
 }
 
+// Spin angle (radians) at a given epoch, given body rotation period in hours.
+// Sign matches the body's rotation direction (negative rot = retrograde).
+// Tied to simulated time, so scrubbing the date scrubs the rotation too.
+function spinAtEpoch(rotHrs, epochMs, slow) {
+  const periodMs = Math.abs(rotHrs) * MS_PER_HOUR;
+  const sign = rotHrs < 0 ? -1 : 1;
+  const factor = slow ? 1 / SLOW_FACTOR : 1;
+  return sign * ((epochMs * factor) / periodMs) * TWO_PI;
+}
+
 export function Planet({ name, body }) {
-  const groupRef = useRef();
-  const meshRef = useRef();
+  const orbitGroupRef = useRef();   // outer: at planet's heliocentric position
+  const tiltGroupRef = useRef();    // middle: tilted by axial (fixed)
+  const spinMeshRef = useRef();     // inner: spins around the tilted Y axis
   const setSelected = useStore((s) => s.setSelected);
   const [hovered, setHovered] = useState(false);
 
@@ -62,19 +77,23 @@ export function Planet({ name, body }) {
   );
   const texture = useMemo(() => makeProceduralTexture(body.color, banded), [body, banded]);
 
-  // Boost small planets' raycaster hit-target without changing visible radius —
-  // reviewer 3's accessibility point. The invisible mesh is at 1.6× radius.
   const hitRadius = Math.max(radius * 1.6, 2.0);
 
   useFrame(() => {
-    if (!groupRef.current) return;
-    const { epochMs, trueInclination } = useStore.getState();
+    if (!orbitGroupRef.current) return;
+    const { epochMs, trueInclination, showRotation, slowRotation } = useStore.getState();
+
+    // Heliocentric position
     const auPos = bodyPositionAU(body, epochMs, { useInclination: trueInclination });
     const scenePos = auVecToSceneUnits(auPos);
     const [x, y, z] = eclipticToThreePosition(scenePos);
-    groupRef.current.position.set(x, y, z);
-    if (meshRef.current) {
-      meshRef.current.rotation.y += 0.003;
+    orbitGroupRef.current.position.set(x, y, z);
+
+    // Spin around the tilted local Y axis (inside the tiltGroup).
+    if (spinMeshRef.current) {
+      spinMeshRef.current.rotation.y = showRotation
+        ? spinAtEpoch(body.rot, epochMs, slowRotation)
+        : 0;
     }
   });
 
@@ -95,21 +114,27 @@ export function Planet({ name, body }) {
   };
 
   return (
-    <group ref={groupRef}>
-      <mesh
-        ref={meshRef}
-        rotation={[0, 0, body.axial * DEG]}
-      >
-        <sphereGeometry args={[radius, 40, 40]} />
-        <meshStandardMaterial
-          map={texture}
-          roughness={0.85}
-          metalness={0.0}
-          emissive={hovered ? new THREE.Color(body.color) : new THREE.Color(0, 0, 0)}
-          emissiveIntensity={hovered ? 0.15 : 0}
-        />
-      </mesh>
-      {/* Invisible hit-mesh — boosts pick target for Mercury/Mars touch input. */}
+    <group ref={orbitGroupRef}>
+      {/* Axial tilt nested as its own group so spin happens around the
+          planet's tilted local Y axis, not the world Y. Reviewer pointed
+          this out — Three.js Euler composition order makes the previous
+          `rotation={[0, 0, axial]}` + `rotation.y +=` combo wrong. */}
+      <group ref={tiltGroupRef} rotation={[0, 0, body.axial * DEG]}>
+        <mesh ref={spinMeshRef}>
+          <sphereGeometry args={[radius, 40, 40]} />
+          <meshStandardMaterial
+            map={texture}
+            roughness={0.85}
+            metalness={0.0}
+            emissive={hovered ? new THREE.Color(body.color) : new THREE.Color(0, 0, 0)}
+            emissiveIntensity={hovered ? 0.15 : 0}
+          />
+        </mesh>
+        {name === 'Saturn' && <SaturnRings planetRadius={radius} />}
+      </group>
+      {/* Invisible hit-mesh — boosts pick target for Mercury/Mars touch input.
+          Sits at the body's orbit position, NOT inside the tilt group, so
+          it's a clean upright sphere regardless of axial tilt. */}
       <mesh
         onClick={onClick}
         onPointerOver={onPointerOver}
@@ -118,7 +143,6 @@ export function Planet({ name, body }) {
       >
         <sphereGeometry args={[hitRadius, 16, 16]} />
       </mesh>
-      {name === 'Saturn' && <SaturnRings planetRadius={radius} />}
     </group>
   );
 }

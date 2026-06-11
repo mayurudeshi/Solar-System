@@ -25,6 +25,8 @@ export const useStore = create((set) => ({
   showApsides: false,
   trueInclination: true,   // false = flatten orbital planes to ecliptic
   trueScale: false,        // POC default — exaggerated, ranked sizes
+  showRotation: true,      // physically accurate spin per body.rot
+  slowRotation: false,     // ÷10 visual damper for studying fast spinners
 
   // Setters
   setEpochMs:      (epochMs)       => set({ epochMs }),
@@ -37,4 +39,6 @@ export const useStore = create((set) => ({
   toggleApsides:   ()              => set((s) => ({ showApsides: !s.showApsides })),
   toggleInclination: ()            => set((s) => ({ trueInclination: !s.trueInclination })),
   toggleScale:     ()              => set((s) => ({ trueScale: !s.trueScale })),
+  toggleRotation:  ()              => set((s) => ({ showRotation: !s.showRotation })),
+  toggleSlowRotation: ()           => set((s) => ({ slowRotation: !s.slowRotation })),
 }));
