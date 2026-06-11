@@ -43,6 +43,8 @@ export function ControlBar() {
   const toggleRotation     = useStore((s) => s.toggleRotation);
   const slowRotation       = useStore((s) => s.slowRotation);
   const toggleSlowRotation = useStore((s) => s.toggleSlowRotation);
+  const naturalLight       = useStore((s) => s.naturalLight);
+  const toggleNaturalLight = useStore((s) => s.toggleNaturalLight);
 
   const sliderPos = speedToSlider(speed);
 
@@ -90,6 +92,15 @@ export function ControlBar() {
           onChange={toggleSlowRotation}
           disabled={!showRotation}
         /> slow
+      </label>
+      <label
+        className="toggle"
+        title={naturalLight
+          ? 'Natural light: inverse-square falloff. Outer planets dim (physically realistic).'
+          : 'Artificially lit: uniform illumination for visibility. Outer planets equally bright.'}
+      >
+        <input type="checkbox" checked={naturalLight} onChange={toggleNaturalLight} />
+        {' '}natural light
       </label>
 
       <span className="hint">click a planet for data · scroll to zoom</span>

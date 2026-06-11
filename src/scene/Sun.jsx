@@ -70,8 +70,20 @@ function SunCorona() {
   );
 }
 
+// Light tuning for the two modes:
+//   artificial (decay=0): intensity is a uniform multiplier — every body
+//     receives the same illumination. Easy on the eyes; outer planets visible.
+//   natural (decay=2): physical inverse-square falloff. We boost intensity
+//     to compensate so Earth at ~26 scene-units looks comparable to before.
+//     Result: Mercury overlit, Jupiter dim, Pluto a faint twilight — same
+//     qualitative pattern as the real solar system (compressed by our log
+//     AU scale, not literally 1/r² of true AU).
+const ARTIFICIAL_INTENSITY = 2.8;
+const NATURAL_INTENSITY = 2000; // ≈ ARTIFICIAL × Earth_r² (26²) so Earth matches
+
 export function Sun() {
   const setSelected = useStore((s) => s.setSelected);
+  const naturalLight = useStore((s) => s.naturalLight);
   const [hovered, setHovered] = useState(false);
   const texture = useSunTexture();
 
@@ -103,7 +115,11 @@ export function Sun() {
         />
       </mesh>
       <SunCorona />
-      <pointLight position={[0, 0, 0]} intensity={2.8} decay={0} />
+      <pointLight
+        position={[0, 0, 0]}
+        intensity={naturalLight ? NATURAL_INTENSITY : ARTIFICIAL_INTENSITY}
+        decay={naturalLight ? 2 : 0}
+      />
     </group>
   );
 }

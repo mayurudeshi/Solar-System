@@ -26,6 +26,7 @@ export const useStore = create((set) => ({
   trueScale: false,
   showRotation: true,
   slowRotation: false,
+  naturalLight: false,     // false = uniform illumination (clarity); true = physical inverse-square falloff
 
   // Sets BOTH epoch sources — user-visible date jump, resyncs spin to orbit.
   setEpochMs: (epochMs) => set({ epochMs, spinEpochMs: epochMs }),
@@ -49,4 +50,5 @@ export const useStore = create((set) => ({
   toggleScale:        ()              => set((s) => ({ trueScale: !s.trueScale })),
   toggleRotation:     ()              => set((s) => ({ showRotation: !s.showRotation })),
   toggleSlowRotation: ()              => set((s) => ({ slowRotation: !s.slowRotation })),
+  toggleNaturalLight: ()              => set((s) => ({ naturalLight: !s.naturalLight })),
 }));
