@@ -37,58 +37,36 @@ function makeGlowTexture(stops) {
 }
 
 function SunCorona() {
-  // Two-layer ANNULAR sprite stack — the center of each sprite is
-  // transparent so the textured sphere shows through, and the bright
-  // band sits OUTSIDE the sphere radius. Additive blending paints light
-  // around the photosphere instead of nuking it.
-  //
-  // Sphere radius is 3.4 scene units. The inner sprite is scale 16
-  // (8-unit radius), so sphere edge sits at fraction 0.425. The inner
-  // gradient stays transparent up to that boundary, peaks just outside,
-  // then fades. Outer corona is scale 40, sphere edge at 0.17 — its
-  // glow band starts there and fades to the far edge.
-  const innerTex = useMemo(
+  // SINGLE smooth-ramp sprite — replaces the previous two-layer stack
+  // that created visible "Saturn-ring" bands and a dark gap in between.
+  // No alpha jumps; every adjacent gradient stop is within ~0.1 alpha of
+  // its neighbor. Sprite is sized so the sphere edge (radius 3.4) sits
+  // at fraction ~0.227 of the sprite half-width (scale 30 → 15 unit
+  // radius), and the bright ramp peaks just outside that.
+  const glowTex = useMemo(
     () =>
       makeGlowTexture([
-        [0.0,  'rgba(255, 240, 200, 0)'],
-        [0.40, 'rgba(255, 240, 200, 0)'],
-        [0.50, 'rgba(255, 220, 130, 0.50)'],
-        [0.65, 'rgba(255, 200,  80, 0.20)'],
-        [1.0,  'rgba(255, 180,  80, 0)'],
-      ]),
-    []
-  );
-  const outerTex = useMemo(
-    () =>
-      makeGlowTexture([
-        [0.0,  'rgba(255, 215, 120, 0)'],
-        [0.17, 'rgba(255, 215, 120, 0)'],
-        [0.30, 'rgba(255, 180,  80, 0.18)'],
-        [0.60, 'rgba(255, 150,  60, 0.06)'],
-        [1.0,  'rgba(255, 140,  60, 0)'],
+        [0.00, 'rgba(255, 240, 200, 0.00)'],
+        [0.15, 'rgba(255, 240, 200, 0.03)'],
+        [0.20, 'rgba(255, 230, 180, 0.10)'],
+        [0.25, 'rgba(255, 220, 140, 0.28)'], // peak just past sphere edge
+        [0.32, 'rgba(255, 200, 100, 0.20)'],
+        [0.45, 'rgba(255, 180,  80, 0.10)'],
+        [0.65, 'rgba(255, 160,  70, 0.04)'],
+        [1.00, 'rgba(255, 150,  60, 0.00)'],
       ]),
     []
   );
 
   return (
-    <>
-      <sprite scale={[16, 16, 1]}>
-        <spriteMaterial
-          map={innerTex}
-          transparent
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-      </sprite>
-      <sprite scale={[40, 40, 1]}>
-        <spriteMaterial
-          map={outerTex}
-          transparent
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-      </sprite>
-    </>
+    <sprite scale={[30, 30, 1]}>
+      <spriteMaterial
+        map={glowTex}
+        transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </sprite>
   );
 }
 
