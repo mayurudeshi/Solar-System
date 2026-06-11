@@ -23,6 +23,7 @@ const MS_PER_CENTURY = 36525 * 86400000;
 export function OrbitPath({ body, samples = 256 }) {
   const showOrbits      = useStore((s) => s.showOrbits);
   const trueInclination = useStore((s) => s.trueInclination);
+  const vantage         = useStore((s) => s.vantage);
   const orbitBucket     = useStore((s) =>
     Math.floor(((s.epochMs - Date.UTC(2000, 0, 1, 12)) / MS_PER_CENTURY) * 100)
   );
@@ -46,6 +47,10 @@ export function OrbitPath({ body, samples = 256 }) {
   }, [body, trueInclination, orbitBucket, samples]);
 
   if (!showOrbits) return null;
+  // When riding a planet, orbit lines from OTHER planets streak across the
+  // close-up view as noise (the lines are AU-scale, you're at planet-scale).
+  // Hide them outside the sun/free vantages.
+  if (vantage !== 'sun' && vantage !== 'free') return null;
 
   return (
     <line geometry={geometry}>

@@ -133,26 +133,31 @@ function SaturnRings({ planetRadius, ringTexture }) {
       0, Math.min(1, (FAR_THRESHOLD - dist) / (FAR_THRESHOLD - NEAR_THRESHOLD))
     );
 
-    // Disc fades from 0.9 → 0.4 as we approach; particles 0 → 0.85.
+    // Disc fades from 0.9 → 0.10 as we approach (so particles dominate
+    // when up close — the rings ARE particles, the disc is the artifact).
+    // Particles 0 → 0.9.
     if (ringMeshRef.current?.material) {
-      ringMeshRef.current.material.opacity = 0.9 - 0.5 * t;
+      ringMeshRef.current.material.opacity = 0.9 - 0.80 * t;
     }
     if (pointsRef.current?.material) {
-      pointsRef.current.material.opacity = 0.85 * t;
+      pointsRef.current.material.opacity = 0.9 * t;
     }
   });
 
   return (
     <group ref={groupRef} rotation={[Math.PI / 2, 0, 0]}>
       <mesh ref={ringMeshRef} geometry={ringGeom}>
+        {/* depthWrite=true so the disc occludes the particles behind it
+            properly. The earlier depthWrite=false was creating layered
+            transparency artifacts at close zoom — the dark irregular
+            silhouette MJ flagged. */}
         <meshBasicMaterial
           map={ringTexture}
           color={ringTexture ? '#ffffff' : '#e3c78a'}
           side={THREE.DoubleSide}
           transparent
           opacity={0.9}
-          alphaTest={ringTexture ? 0.02 : 0}
-          depthWrite={false}
+          alphaTest={ringTexture ? 0.05 : 0}
         />
       </mesh>
       <points ref={pointsRef} geometry={particleGeom}>
