@@ -15,7 +15,7 @@ export default function App() {
         <DateScrubber />
       </header>
       <InfoPanel />
-      <footer className="readout">scaffold v0.2 · planets land next pass</footer>
+      <footer className="readout">scaffold v0.3 · bar visibility fix · planets land next pass</footer>
     </ErrorBoundary>
   );
 }

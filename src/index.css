@@ -39,12 +39,16 @@ html, body, #root {
   z-index: 100;
   display: flex; flex-wrap: wrap; align-items: center;
   gap: 10px;
-  padding: 9px 13px;
-  background: var(--panel);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--border);
-  font-size: 12px;
+  padding: 12px 16px;
+  /* SOLID background (was rgba/0.92 blending into canvas) + visible border
+     so we can confirm whether the bar is rendering at all on mobile. */
+  background: #0b1018;
+  border-bottom: 2px solid #7fb0ff;
+  font-size: 13px;
+  color: #cdd6e8;
+  /* Drop backdrop-filter — was a candidate for the silent-failure mode on
+     iOS Safari when the parent has overflow:hidden. */
+  min-height: 44px;
 }
 
 .control-bar,
