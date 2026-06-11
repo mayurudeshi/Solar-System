@@ -1,44 +1,52 @@
 import { create } from 'zustand';
 
-// Single source of truth for UI state.
+// Two parallel time sources so pause can freeze orbits without freezing
+// spin (MJ's observation: at high speeds, inner planets fly around the
+// sun in <1 sec while their rotations stay invisible; pause should let
+// you study a spin without losing your place in the orbit).
 //
-// IMPORTANT: simulated time is stored as `epochMs` (number) — NOT a Date
-// object. A fresh `new Date()` on every setDate creates a new ref every
-// call, so `Object.is` zustand equality always fails and every selector
-// re-renders. With epoch ms, primitive identity holds — same value = no
-// re-render, even when called per-frame from the SimClock.
+//   epochMs     — drives orbital position (frozen when paused)
+//   spinEpochMs — drives planetary rotation (always advances at speed×)
+//
+// On any user-set date jump (DateScrubber's input or 'now' button), BOTH
+// reset to the picked value — they only desync during a pause-and-watch.
 export const useStore = create((set) => ({
-  // Simulation time
-  epochMs: Date.now(),     // current "now" in the simulation
-  speed: 1.0,              // multiplier on day-per-real-second base rate
+  epochMs: Date.now(),
+  spinEpochMs: Date.now(),
+  speed: 1.0,
   paused: false,
 
-  // Vantage / camera target
-  vantage: 'sun',          // 'sun' | 'Mercury' | ... | 'free'
-
-  // Currently-selected body (drives the InfoPanel)
+  vantage: 'sun',
   selected: null,
 
-  // Display toggles
   showOrbits: true,
   showLabels: true,
   showApsides: false,
-  trueInclination: true,   // false = flatten orbital planes to ecliptic
-  trueScale: false,        // POC default — exaggerated, ranked sizes
-  showRotation: true,      // physically accurate spin per body.rot
-  slowRotation: false,     // ÷10 visual damper for studying fast spinners
+  trueInclination: true,
+  trueScale: false,
+  showRotation: true,
+  slowRotation: false,
 
-  // Setters
-  setEpochMs:      (epochMs)       => set({ epochMs }),
-  setSpeed:        (speed)         => set({ speed }),
-  togglePause:     ()              => set((s) => ({ paused: !s.paused })),
-  setVantage:      (vantage)       => set({ vantage }),
-  setSelected:     (selected)      => set({ selected }),
-  toggleOrbits:    ()              => set((s) => ({ showOrbits: !s.showOrbits })),
-  toggleLabels:    ()              => set((s) => ({ showLabels: !s.showLabels })),
-  toggleApsides:   ()              => set((s) => ({ showApsides: !s.showApsides })),
-  toggleInclination: ()            => set((s) => ({ trueInclination: !s.trueInclination })),
-  toggleScale:     ()              => set((s) => ({ trueScale: !s.trueScale })),
-  toggleRotation:  ()              => set((s) => ({ showRotation: !s.showRotation })),
-  toggleSlowRotation: ()           => set((s) => ({ slowRotation: !s.slowRotation })),
+  // Sets BOTH epoch sources — user-visible date jump, resyncs spin to orbit.
+  setEpochMs: (epochMs) => set({ epochMs, spinEpochMs: epochMs }),
+
+  // Internal — used by SimClock per-frame. When paused, only spin advances.
+  tickSim: (deltaMs, paused) =>
+    set((s) =>
+      paused
+        ? { spinEpochMs: s.spinEpochMs + deltaMs }
+        : { epochMs: s.epochMs + deltaMs, spinEpochMs: s.spinEpochMs + deltaMs }
+    ),
+
+  setSpeed:           (speed)         => set({ speed }),
+  togglePause:        ()              => set((s) => ({ paused: !s.paused })),
+  setVantage:         (vantage)       => set({ vantage }),
+  setSelected:        (selected)      => set({ selected }),
+  toggleOrbits:       ()              => set((s) => ({ showOrbits: !s.showOrbits })),
+  toggleLabels:       ()              => set((s) => ({ showLabels: !s.showLabels })),
+  toggleApsides:      ()              => set((s) => ({ showApsides: !s.showApsides })),
+  toggleInclination:  ()              => set((s) => ({ trueInclination: !s.trueInclination })),
+  toggleScale:        ()              => set((s) => ({ trueScale: !s.trueScale })),
+  toggleRotation:     ()              => set((s) => ({ showRotation: !s.showRotation })),
+  toggleSlowRotation: ()              => set((s) => ({ slowRotation: !s.slowRotation })),
 }));

@@ -1,23 +1,20 @@
 import { useFrame } from '@react-three/fiber';
 import { useStore } from '../state/useStore.js';
 
-// Single global tick that advances simulated time. Base rate: at speed=1,
-// one real second of wall-clock advances the simulation by ONE DAY.
+// Single global tick. Drives both epoch sources via tickSim:
+//   - When NOT paused: both epochMs (orbit) and spinEpochMs (rotation) advance.
+//   - When paused: only spinEpochMs advances. Orbital positions hold,
+//     planets keep spinning at the current speed multiplier.
 //
-//   1× → Earth orbit in ~365 real seconds (~6 minutes)
-//   8× → Earth orbit in ~46 real seconds
-//
-// Lives in the R3F tree (mounted from Scene.jsx) so it has a useFrame
-// host. Returns null — no scene contribution beyond writing the store.
+// Base rate: speed=1 → one real second of wall-clock advances simulation
+// time by one day.
 const MS_PER_DAY = 86400000;
 
 export function SimClock() {
   useFrame((_, dt) => {
-    const { speed, paused, epochMs, setEpochMs } = useStore.getState();
-    if (paused || speed === 0) return;
-    // dt is the real-time delta in seconds. Multiply by speed (days/sec)
-    // and ms-per-day to get the simulated ms to advance.
-    setEpochMs(epochMs + dt * speed * MS_PER_DAY);
+    const { speed, paused, tickSim } = useStore.getState();
+    if (speed <= 0) return;
+    tickSim(dt * speed * MS_PER_DAY, paused);
   });
   return null;
 }

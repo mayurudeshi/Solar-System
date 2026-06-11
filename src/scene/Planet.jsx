@@ -81,18 +81,20 @@ export function Planet({ name, body }) {
 
   useFrame(() => {
     if (!orbitGroupRef.current) return;
-    const { epochMs, trueInclination, showRotation, slowRotation } = useStore.getState();
+    const { epochMs, spinEpochMs, trueInclination, showRotation, slowRotation } = useStore.getState();
 
-    // Heliocentric position
+    // Heliocentric position — driven by epochMs (frozen when paused).
     const auPos = bodyPositionAU(body, epochMs, { useInclination: trueInclination });
     const scenePos = auVecToSceneUnits(auPos);
     const [x, y, z] = eclipticToThreePosition(scenePos);
     orbitGroupRef.current.position.set(x, y, z);
 
-    // Spin around the tilted local Y axis (inside the tiltGroup).
+    // Spin around the tilted local Y axis — driven by spinEpochMs, which
+    // KEEPS ADVANCING when paused. Lets you freeze the orbit at high
+    // speeds and study rotation alone.
     if (spinMeshRef.current) {
       spinMeshRef.current.rotation.y = showRotation
-        ? spinAtEpoch(body.rot, epochMs, slowRotation)
+        ? spinAtEpoch(body.rot, spinEpochMs, slowRotation)
         : 0;
     }
   });
