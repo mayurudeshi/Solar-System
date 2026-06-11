@@ -112,12 +112,13 @@ export function Sun() {
         onPointerOut={onPointerOut}
       >
         <sphereGeometry args={[3.4, 64, 64]} />
-        {/* H-alpha tint — multiplies the photospheric texture by a strong
-            red-orange so the granulation reads as the chromosphere layer
-            (the hydrogen-emission band at 656nm). Lifts slightly on hover. */}
+        {/* The 2k_sun.jpg from Solar System Scope is ALREADY an H-alpha /
+            chromosphere-style equirectangular projection (deep red-orange
+            with granulation + prominence patterns). Render it as-is.
+            Multiplying by anything other than #ffffff just dims the source. */}
         <meshBasicMaterial
           map={texture}
-          color={hovered ? '#ff8550' : '#ff5530'}
+          color={hovered ? '#fff0e0' : '#ffffff'}
         />
       </mesh>
       <SunCorona />
