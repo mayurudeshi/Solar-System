@@ -5,13 +5,10 @@ import {
   bodyPositionAU,
   auVecToSceneUnits,
   eclipticToThreePosition,
+  spinAtEpoch,
   DEG,
 } from '../lib/orbital.js';
 import { useStore } from '../state/useStore.js';
-
-const TWO_PI = Math.PI * 2;
-const MS_PER_HOUR = 3600000;
-const SLOW_FACTOR = 10;
 
 // Procedural fallback. Stays as the FIRST RENDER while the real CC-BY 4.0
 // texture is fetched in the background, so the planet appears immediately
@@ -59,12 +56,6 @@ function SaturnRings({ planetRadius, ringTexture }) {
   );
 }
 
-function spinAtEpoch(rotHrs, epochMs, slow) {
-  const periodMs = Math.abs(rotHrs) * MS_PER_HOUR;
-  const sign = rotHrs < 0 ? -1 : 1;
-  const factor = slow ? 1 / SLOW_FACTOR : 1;
-  return sign * ((epochMs * factor) / periodMs) * TWO_PI;
-}
 
 // Async-load a real texture; resolve to null on failure so the procedural
 // fallback persists.

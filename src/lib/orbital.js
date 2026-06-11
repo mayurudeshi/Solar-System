@@ -152,3 +152,21 @@ export function auVecToSceneUnits({ x, y, z }) {
 export function eclipticToThreePosition({ x, y, z }) {
   return [x, z, -y];
 }
+
+// ── Body spin ───────────────────────────────────────────────────────────
+//
+// Spin angle (radians) at a given epoch, given the body's rotation period
+// in hours. Sign matches the rotation direction — negative rot means
+// retrograde (Venus, Uranus). Tied to simulated time, so scrubbing the
+// date scrubs the rotation too. Shared by Planet and Sun.
+
+const TWO_PI = Math.PI * 2;
+const MS_PER_HOUR = 3600000;
+export const ROTATION_SLOW_FACTOR = 10;
+
+export function spinAtEpoch(rotHrs, epochMs, slow) {
+  const periodMs = Math.abs(rotHrs) * MS_PER_HOUR;
+  const sign = rotHrs < 0 ? -1 : 1;
+  const factor = slow ? 1 / ROTATION_SLOW_FACTOR : 1;
+  return sign * ((epochMs * factor) / periodMs) * TWO_PI;
+}

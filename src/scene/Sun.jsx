@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useStore } from '../state/useStore.js';
+import { BODIES } from '../data/bodies.js';
+import { spinAtEpoch, DEG } from '../lib/orbital.js';
 
 // Sun: textured sphere + corona glow + point light. The Sun is its own
 // light source (planets get lit by the point light), so we use
@@ -189,6 +191,20 @@ export function Sun() {
   const naturalLight = useStore((s) => s.naturalLight);
   const [hovered, setHovered] = useState(false);
   const texture = useSunTexture();
+  const spinRef = useRef();
+
+  // Same spin pipeline as the planets — driven by spinEpochMs (advances
+  // even when paused), gated by the showRotation toggle, damped by
+  // slowRotation. Sun rotation period 600.96 hr = ~25 Earth days at the
+  // equator (differential rotation; the polar regions actually take ~35
+  // days, but we use the equatorial value for the whole texture).
+  useFrame(() => {
+    if (!spinRef.current) return;
+    const { spinEpochMs, showRotation, slowRotation } = useStore.getState();
+    spinRef.current.rotation.y = showRotation
+      ? spinAtEpoch(BODIES.Sun.rot, spinEpochMs, slowRotation)
+      : 0;
+  });
 
   const onClick = (e) => {
     e.stopPropagation();
@@ -206,13 +222,17 @@ export function Sun() {
 
   return (
     <group>
-      <mesh
-        onClick={onClick}
-        onPointerOver={onPointerOver}
-        onPointerOut={onPointerOut}
-      >
-        <sphereGeometry args={[3.4, 64, 64]} />
-        {/* The 2k_sun.jpg from Solar System Scope is ALREADY an H-alpha /
+      {/* Axial tilt (7.25° to ecliptic) nested as its own group so the
+          spin happens around the Sun's tilted local Y axis. */}
+      <group rotation={[0, 0, BODIES.Sun.axial * DEG]}>
+        <mesh
+          ref={spinRef}
+          onClick={onClick}
+          onPointerOver={onPointerOver}
+          onPointerOut={onPointerOut}
+        >
+          <sphereGeometry args={[3.4, 64, 64]} />
+          {/* The 2k_sun.jpg from Solar System Scope is ALREADY an H-alpha /
             chromosphere-style equirectangular projection (deep red-orange
             with granulation + prominence patterns). Render it as-is.
 
@@ -221,12 +241,13 @@ export function Sun() {
             shader was compiled without map support (texture was null at
             first render) and never re-compiles when map is set. That's
             why the sphere was rendering as a flat white dot. */}
-        <meshBasicMaterial
-          key={texture ? 'loaded' : 'loading'}
-          map={texture}
-          color={hovered ? '#fff0e0' : '#ffffff'}
-        />
-      </mesh>
+          <meshBasicMaterial
+            key={texture ? 'loaded' : 'loading'}
+            map={texture}
+            color={hovered ? '#fff0e0' : '#ffffff'}
+          />
+        </mesh>
+      </group>
       <SunProminences />
       <SunCorona />
       <pointLight
