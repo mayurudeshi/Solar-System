@@ -29,6 +29,17 @@
 // rotate by (Ω, I, ω) into ecliptic-J2000 Cartesian.
 
 export const BODIES = {
+  Sun: {
+    isStar: true,
+    a: 0, e: 0, inc: 0, period: 0,
+    dia: 1391400, rot: 600.96, moons: 0, axial: 7.25, color: '#ffe9a8',
+    mass_kg: 1.989e30, mass_earth: 333000, gravity_ms2: 274,
+    surface_temp_c: 5500, core_temp_c: 15000000,
+    age_gyr: 4.6, composition: '73% H, 25% He, 2% heavier',
+    spectral_type: 'G2V (yellow dwarf)',
+    fact: 'Contains 99.86% of the solar system’s mass. A teaspoon of its core would weigh ~5 metric tons. Rotates differentially — 25 days at the equator, ~35 at the poles.',
+  },
+
   Mercury: {
     a: 0.387, e: 0.2056, inc: 7.00, lop: 77, period: 0.241,
     dia: 4879, rot: 1407.6, moons: 0, axial: 0.03, color: '#b7a47e',
@@ -159,3 +170,6 @@ export const BODIES = {
 };
 
 export const BODY_NAMES = Object.keys(BODIES);
+// Planets-only list (Sun excluded) for scene iteration that renders Planet
+// components / orbit paths. The Sun is rendered separately by Sun.jsx.
+export const PLANET_NAMES = BODY_NAMES.filter((n) => !BODIES[n].isStar);

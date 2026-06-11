@@ -1,24 +1,29 @@
 import { useStore } from '../state/useStore.js';
 
-// Speed slider is LOG-SCALED: slider position 0-100 (linear) maps to
-//   speed = 10^((pos - 50) / 25)
-// giving 0.01× at pos 0, 0.1× at 25, 1× at 50, 10× at 75, 100× at 100.
-// This gives fine control everywhere — fractional days at the bottom,
-// "Pluto orbit in minutes" at the top.
+// Speed slider is LOG-SCALED across 5 decades — slider position 0-100
+// maps to speed = 10^((pos - 60) / 20):
+//   pos   0 → 0.001× (1 hour ≈ 41 real sec)
+//   pos  20 → 0.01×
+//   pos  40 → 0.1×
+//   pos  60 → 1× (default — 1 sim day per real second)
+//   pos  80 → 10×
+//   pos 100 → 100× (visible Pluto orbit in minutes)
 const SLIDER_MIN = 0;
 const SLIDER_MAX = 100;
 const SLIDER_STEP = 1;
 
 function sliderToSpeed(pos) {
-  return Math.pow(10, (pos - 50) / 25);
+  return Math.pow(10, (pos - 60) / 20);
 }
 function speedToSlider(speed) {
-  return 50 + 25 * Math.log10(speed);
+  return 60 + 20 * Math.log10(speed);
 }
 function formatSpeed(speed) {
-  if (speed < 1)  return `${speed.toFixed(2)}×`;
-  if (speed < 10) return `${speed.toFixed(2)}×`;
-  return `${Math.round(speed)}×`;
+  if (speed >= 10)    return `${Math.round(speed)}×`;
+  if (speed >= 1)     return `${speed.toFixed(1)}×`;
+  if (speed >= 0.1)   return `${speed.toFixed(2)}×`;
+  if (speed >= 0.01)  return `${speed.toFixed(2)}×`;
+  return `${speed.toFixed(3)}×`;
 }
 
 export function ControlBar() {

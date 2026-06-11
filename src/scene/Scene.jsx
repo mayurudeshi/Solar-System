@@ -5,10 +5,8 @@ import { Planet } from './Planet.jsx';
 import { OrbitPath } from './OrbitPath.jsx';
 import { SimClock } from './SimClock.jsx';
 import { VantageCamera } from './VantageCamera.jsx';
-import { BODIES, BODY_NAMES } from '../data/bodies.js';
+import { BODIES, PLANET_NAMES } from '../data/bodies.js';
 
-// Top-level R3F canvas. The simulation clock + vantage camera live inside
-// the Canvas (they each consume useFrame); everything else is content.
 export function Scene() {
   return (
     <Canvas
@@ -20,10 +18,10 @@ export function Scene() {
       <ambientLight intensity={0.35} color="#404a5c" />
       <Sun />
       <Starfield />
-      {BODY_NAMES.map((name) => (
+      {PLANET_NAMES.map((name) => (
         <Planet key={name} name={name} body={BODIES[name]} />
       ))}
-      {BODY_NAMES.map((name) => (
+      {PLANET_NAMES.map((name) => (
         <OrbitPath key={`orbit-${name}`} body={BODIES[name]} />
       ))}
       <SimClock />

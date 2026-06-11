@@ -178,10 +178,47 @@ input[type='date'] {
   .vantage-select-mobile { display: inline-block; }
   .hint { display: none; }
 
-  /* Top bar gets taller when controls wrap. Push InfoPanel below the
-     worst-case wrapped header (reviewer 4's B11). */
-  .info-panel { top: 140px; width: calc(100% - 28px); right: 14px; left: 14px; }
+  /* Mobile bar: single row, HORIZONTAL SCROLL. Wrapping the bar's children
+     to multiple rows eats 150+ px of viewport. Letting the row scroll
+     keeps the bar at ~40px and the user can swipe right to see vantage
+     and date scrubber. Inner control groups don't shrink — they keep
+     their content shape and ride the parent's scroll. */
+  .top-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+    font-size: 11px;
+    padding: 7px 10px;
+    gap: 10px;
+  }
+  .top-bar::-webkit-scrollbar { height: 4px; }
+  .top-bar::-webkit-scrollbar-thumb {
+    background: var(--border); border-radius: 2px;
+  }
+  .control-bar, .vantage, .date-scrubber {
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+  }
 
-  .top-bar { font-size: 11px; padding: 7px 10px; gap: 8px; }
-  .ctrl input[type='range'] { width: 60px; }
+  .info-panel {
+    top: 60px;
+    width: calc(100% - 28px);
+    right: 14px; left: 14px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+  }
+
+  .ctrl input[type='range'] { width: 70px; }
+
+  .readout {
+    font-size: 10px;
+    padding: 4px 8px;
+    bottom: 8px; right: 8px;
+    max-width: calc(100vw - 16px);
+    /* Truncate gracefully if it overflows */
+    overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  }
 }
