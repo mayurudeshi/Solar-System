@@ -6,8 +6,10 @@ const MIN = new Date('1800-01-01T00:00:00Z');
 const MAX = new Date('2050-12-31T00:00:00Z');
 
 function toInputValue(date) {
-  // <input type="date" /> wants YYYY-MM-DD
-  return date.toISOString().slice(0, 10);
+  // <input type="date" /> wants YYYY-MM-DD. Defensive coercion in case
+  // future persist middleware ever rehydrates the store with a string.
+  const d = date instanceof Date ? date : new Date(date);
+  return d.toISOString().slice(0, 10);
 }
 
 export function DateScrubber() {

@@ -1,3 +1,4 @@
+import { ErrorBoundary } from './ErrorBoundary.jsx';
 import { Scene } from './scene/Scene.jsx';
 import { ControlBar } from './ui/ControlBar.jsx';
 import { InfoPanel } from './ui/InfoPanel.jsx';
@@ -6,7 +7,7 @@ import { DateScrubber } from './ui/DateScrubber.jsx';
 
 export default function App() {
   return (
-    <>
+    <ErrorBoundary>
       <Scene />
       <header className="top-bar">
         <ControlBar />
@@ -14,7 +15,7 @@ export default function App() {
         <DateScrubber />
       </header>
       <InfoPanel />
-      <footer className="readout">scaffold v0.1 · planets land next pass</footer>
-    </>
+      <footer className="readout">scaffold v0.2 · planets land next pass</footer>
+    </ErrorBoundary>
   );
 }
