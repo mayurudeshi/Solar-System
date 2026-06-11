@@ -220,7 +220,11 @@ export function Planet({ name, body }) {
   const ringTexture = useAsyncTexture(body.ringTextureUrl);
   const texture = real || procedural;
 
-  const hitRadius = Math.max(radius * 1.6, 2.0);
+  // Hit-sphere kept tight (no 2.0 floor) so it doesn't swallow moons that
+  // orbit close to their planet. Phobos/Deimos sit at ~1.6-1.7 from Mars
+  // center — the old 2.0 floor meant clicks on the moons hit the Mars
+  // shell first via raycast ordering, and Mars won the event every time.
+  const hitRadius = Math.max(radius * 1.4, 1.3);
 
   useFrame(() => {
     if (!orbitGroupRef.current) return;

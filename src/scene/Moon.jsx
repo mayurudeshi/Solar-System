@@ -53,7 +53,11 @@ function useMoonTexture(url) {
 // radius to a perceptible minimum and exaggerate orbital distance.
 const MIN_MOON_RADIUS = 0.18;
 const MAX_MOON_RADIUS = 0.65;
-const ORBIT_DISTANCE_BASE = 1.4;     // multiplier on planet scene radius
+// Pushed from 1.4 → 1.8 so Phobos/Deimos sit OUTSIDE Mars' click hit-shell
+// (which now extends to ~1.3 from Mars center). Without this gap, the
+// moon's mesh lives inside the parent's invisible hit-sphere and the
+// raycaster hits the parent's outer surface first, swallowing the click.
+const ORBIT_DISTANCE_BASE = 1.8;
 const ORBIT_DISTANCE_SCALE = 0.018;  // scene-units per parent-radius of true a_km
 
 function moonRadius(moonDiaKm) {
@@ -104,6 +108,11 @@ export function Moon({ name, moon, parent }) {
   const radius = useMemo(() => moonRadius(moon.dia), [moon.dia]);
   const orbitRadius = useMemo(() => orbitRadiusSceneUnits(moon, parent), [moon, parent]);
   const texture = useMoonTexture(moon.textureUrl);
+  // Enlarged invisible click target. Phobos visually renders at 0.18 — a
+  // ~4-pixel target on screen at default zoom — which is brutal to click.
+  // The hit-sphere is large enough to grab confidently but capped so it
+  // doesn't fully overlap the parent planet's hit-sphere on the far side.
+  const hitRadius = Math.max(radius * 2.5, 0.5);
 
   // LOD threshold: only show the moon when the camera is reasonably
   // close to its parent. Tighter than the first cut — moons stay hidden
@@ -167,27 +176,32 @@ export function Moon({ name, moon, parent }) {
   // (invisible, non-raycastable, ~zero cost) and can be revealed when
   // the camera approaches.
   return (
-    <mesh
-      ref={ref}
-      visible={visible}
-      onClick={onClick}
-      onPointerOver={onPointerOver}
-      onPointerOut={onPointerOut}
-    >
-      <sphereGeometry args={[radius, 32, 32]} />
-      {/* key={texture ? 'with-tex' : 'no-tex'} remounts the material when
-          the async texture lands — same shader-compile trick used for
-          the Sun. Without it the material is compiled with map=null and
-          stays color-only forever. */}
-      <meshStandardMaterial
-        key={texture ? 'with-tex' : 'no-tex'}
-        map={texture}
-        color={texture ? '#ffffff' : moon.color}
-        roughness={0.9}
-        metalness={0.0}
-        emissive={hovered ? new THREE.Color(moon.color) : new THREE.Color(0, 0, 0)}
-        emissiveIntensity={hovered ? 0.2 : 0}
-      />
-    </mesh>
+    <group ref={ref} visible={visible}>
+      <mesh>
+        <sphereGeometry args={[radius, 32, 32]} />
+        {/* key={texture ? 'with-tex' : 'no-tex'} remounts the material when
+            the async texture lands — same shader-compile trick used for
+            the Sun. Without it the material is compiled with map=null and
+            stays color-only forever. */}
+        <meshStandardMaterial
+          key={texture ? 'with-tex' : 'no-tex'}
+          map={texture}
+          color={texture ? '#ffffff' : moon.color}
+          roughness={0.9}
+          metalness={0.0}
+          emissive={hovered ? new THREE.Color(moon.color) : new THREE.Color(0, 0, 0)}
+          emissiveIntensity={hovered ? 0.2 : 0}
+        />
+      </mesh>
+      {/* Invisible enlarged click target — the real raycast hit. */}
+      <mesh
+        onClick={onClick}
+        onPointerOver={onPointerOver}
+        onPointerOut={onPointerOut}
+        visible={false}
+      >
+        <sphereGeometry args={[hitRadius, 16, 16]} />
+      </mesh>
+    </group>
   );
 }
