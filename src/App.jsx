@@ -15,7 +15,7 @@ export default function App() {
         <DateScrubber />
       </header>
       <InfoPanel />
-      <footer className="readout">scaffold v0.3 · bar visibility fix · planets land next pass</footer>
+      <footer className="readout">v0.4 · 9 planets + Pluto · J2000 date-accurate positions</footer>
     </ErrorBoundary>
   );
 }

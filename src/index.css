@@ -39,16 +39,12 @@ html, body, #root {
   z-index: 100;
   display: flex; flex-wrap: wrap; align-items: center;
   gap: 10px;
-  padding: 12px 16px;
-  /* SOLID background (was rgba/0.92 blending into canvas) + visible border
-     so we can confirm whether the bar is rendering at all on mobile. */
-  background: #0b1018;
-  border-bottom: 2px solid #7fb0ff;
-  font-size: 13px;
-  color: #cdd6e8;
-  /* Drop backdrop-filter — was a candidate for the silent-failure mode on
-     iOS Safari when the parent has overflow:hidden. */
-  min-height: 44px;
+  padding: 9px 13px;
+  background: var(--panel);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
 }
 
 .control-bar,
@@ -122,6 +118,18 @@ input[type='date'] {
 }
 .info-swatch { width: 13px; height: 13px; border-radius: 50%; display: inline-block; }
 .info-sub { color: var(--text-dim); font-size: 12px; margin: 0 0 12px; }
+.info-table {
+  width: 100%; font-size: 12.5px; border-collapse: collapse;
+}
+.info-table td {
+  padding: 4px 0; vertical-align: top;
+}
+.info-table td:first-child {
+  color: var(--text-dim); white-space: nowrap; padding-right: 10px;
+}
+.info-table td:last-child {
+  text-align: right; color: var(--text);
+}
 .info-fact {
   margin: 12px 0 0; font-size: 12.5px; line-height: 1.55; color: #dbe2f0;
   border-top: 1px solid var(--border); padding-top: 10px;

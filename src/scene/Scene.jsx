@@ -2,10 +2,12 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { Sun } from './Sun.jsx';
 import { Starfield } from './Starfield.jsx';
+import { Planet } from './Planet.jsx';
+import { OrbitPath } from './OrbitPath.jsx';
+import { BODIES, BODY_NAMES } from '../data/bodies.js';
 
-// Top-level R3F canvas. Scaffold renders only Sun + Starfield to prove
-// the build → push → deploy → R3F pipeline. Planets/orbits/moons land in
-// subsequent passes once positioning math is implemented and reviewed.
+// Top-level R3F canvas. Renders Sun + starfield + every body + its orbit
+// line. Positions are driven by `useStore.date` via `bodyPositionAU`.
 export function Scene() {
   return (
     <Canvas
@@ -17,6 +19,12 @@ export function Scene() {
       <ambientLight intensity={0.35} color="#404a5c" />
       <Sun />
       <Starfield />
+      {BODY_NAMES.map((name) => (
+        <Planet key={name} name={name} body={BODIES[name]} />
+      ))}
+      {BODY_NAMES.map((name) => (
+        <OrbitPath key={`orbit-${name}`} body={BODIES[name]} />
+      ))}
       <OrbitControls
         enableDamping
         dampingFactor={0.08}
