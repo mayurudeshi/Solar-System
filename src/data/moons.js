@@ -27,6 +27,7 @@ export const MOONS = {
     parent: 'Earth',
     a_km: 384400, e: 0.0549, inc: 5.145, period_d: 27.3217,
     dia: 3474, rot: 27.3217 * 24, color: '#c8c8c0',
+    textureUrl: '/textures/moons/2k_luna.jpg',
     fact: 'Tidally locked — always shows Earth the same face. Drifts away at ~3.8 cm/year. Without it, Earth would wobble chaotically on its axis.',
   },
 
@@ -35,6 +36,7 @@ export const MOONS = {
     parent: 'Mars',
     a_km: 9376, e: 0.0151, inc: 1.08, period_d: 0.3189,
     dia: 22.4, rot: 0.3189 * 24, color: '#8a7560',
+    textureUrl: '/textures/moons/phobos.jpg',
     fact: 'Orbits Mars in just 7.6 hours — faster than Mars rotates. Rises in the west, sets in the east. Spiraling inward; will crash into Mars in ~50 million years.',
   },
   Deimos: {
@@ -49,24 +51,28 @@ export const MOONS = {
     parent: 'Jupiter',
     a_km: 421800, e: 0.0041, inc: 0.036, period_d: 1.7691,
     dia: 3643, rot: 1.7691 * 24, color: '#e8d674',
+    textureUrl: '/textures/moons/io.jpg',
     fact: 'Most volcanically active body in the solar system — 400+ active volcanoes. Tidal flexing from Jupiter + Europa + Ganymede heats its interior to molten lava.',
   },
   Europa: {
     parent: 'Jupiter',
     a_km: 671034, e: 0.009, inc: 0.466, period_d: 3.5512,
     dia: 3122, rot: 3.5512 * 24, color: '#d8c8a0',
+    textureUrl: '/textures/moons/europa.jpg',
     fact: 'Smooth ice surface conceals a global liquid-water ocean with MORE volume than all of Earth\'s oceans combined. Tidal heating from Jupiter keeps it liquid. Top candidate for extraterrestrial life. NASA Europa Clipper launched 2024.',
   },
   Ganymede: {
     parent: 'Jupiter',
     a_km: 1070400, e: 0.0013, inc: 0.177, period_d: 7.1546,
     dia: 5268, rot: 7.1546 * 24, color: '#b8a888',
+    textureUrl: '/textures/moons/ganymede.jpg',
     fact: 'Largest moon in the solar system — bigger than the planet Mercury. Only moon with its own magnetic field. Has a subsurface saltwater ocean too.',
   },
   Callisto: {
     parent: 'Jupiter',
     a_km: 1882700, e: 0.0074, inc: 0.192, period_d: 16.689,
     dia: 4821, rot: 16.689 * 24, color: '#948578',
+    textureUrl: '/textures/moons/callisto.jpg',
     fact: 'Most heavily cratered surface known — geologically dead for ~4 billion years. The outermost Galilean. Outside Jupiter\'s main radiation belt, so a relatively safe staging point for crewed Jupiter-system missions.',
   },
 
@@ -75,12 +81,14 @@ export const MOONS = {
     parent: 'Saturn',
     a_km: 1221870, e: 0.0288, inc: 0.348, period_d: 15.945,
     dia: 5149, rot: 15.945 * 24, color: '#d8a85c',
+    textureUrl: '/textures/moons/titan.webp',
     fact: 'Only moon in the solar system with a substantial atmosphere — denser than Earth\'s. Lakes and rivers of liquid METHANE flow across its surface. Bigger than Mercury.',
   },
   Enceladus: {
     parent: 'Saturn',
     a_km: 237948, e: 0.0047, inc: 0.019, period_d: 1.3702,
     dia: 504, rot: 1.3702 * 24, color: '#f0f0f8',
+    textureUrl: '/textures/moons/enceladus.jpg',
     fact: 'Tiny moon with cryovolcanic geysers spraying water-ice plumes into space from a subsurface ocean. Cassini flew through the plumes and detected organic compounds.',
   },
 
@@ -89,6 +97,7 @@ export const MOONS = {
     parent: 'Neptune',
     a_km: 354759, e: 0.000016, inc: 156.865, period_d: 5.877,
     dia: 2706, rot: 5.877 * 24, color: '#c4b8a8',
+    textureUrl: '/textures/moons/triton.jpg',
     fact: 'Orbits Neptune RETROGRADE — backwards relative to Neptune\'s rotation. Almost certainly a captured Kuiper Belt object. Slowly spiraling inward; will be torn apart by Neptune\'s tides in ~3.6 billion years.',
   },
 

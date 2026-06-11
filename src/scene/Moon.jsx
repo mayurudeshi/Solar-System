@@ -9,6 +9,34 @@ import {
 } from '../lib/orbital.js';
 import { useStore } from '../state/useStore.js';
 
+// Async-load a real texture; null if URL missing or load fails. Same
+// pattern as Planet.jsx so moons get NASA / mission imagery when
+// available and fall back to color-only shading otherwise.
+function useMoonTexture(url) {
+  const [tex, setTex] = useState(null);
+  useEffect(() => {
+    if (!url) { setTex(null); return; }
+    let cancelled = false;
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      url,
+      (loaded) => {
+        if (cancelled) { loaded.dispose(); return; }
+        loaded.colorSpace = THREE.SRGBColorSpace;
+        loaded.anisotropy = 4;
+        setTex(loaded);
+      },
+      undefined,
+      () => { /* silent fail — color fallback persists */ }
+    );
+    return () => {
+      cancelled = true;
+      setTex((t) => { if (t) t.dispose(); return null; });
+    };
+  }, [url]);
+  return tex;
+}
+
 // Each moon orbits its PARENT planet, not the Sun. We compute the moon's
 // world position each frame as:
 //   parent_heliocentric_position + moon_relative_orbit_position
@@ -75,6 +103,7 @@ export function Moon({ name, moon, parent }) {
 
   const radius = useMemo(() => moonRadius(moon.dia), [moon.dia]);
   const orbitRadius = useMemo(() => orbitRadiusSceneUnits(moon, parent), [moon, parent]);
+  const texture = useMoonTexture(moon.textureUrl);
 
   // LOD threshold: only show the moon when the camera is reasonably
   // close to its parent. Tighter than the first cut — moons stay hidden
@@ -145,9 +174,15 @@ export function Moon({ name, moon, parent }) {
       onPointerOver={onPointerOver}
       onPointerOut={onPointerOut}
     >
-      <sphereGeometry args={[radius, 24, 24]} />
+      <sphereGeometry args={[radius, 32, 32]} />
+      {/* key={texture ? 'with-tex' : 'no-tex'} remounts the material when
+          the async texture lands — same shader-compile trick used for
+          the Sun. Without it the material is compiled with map=null and
+          stays color-only forever. */}
       <meshStandardMaterial
-        color={moon.color}
+        key={texture ? 'with-tex' : 'no-tex'}
+        map={texture}
+        color={texture ? '#ffffff' : moon.color}
         roughness={0.9}
         metalness={0.0}
         emissive={hovered ? new THREE.Color(moon.color) : new THREE.Color(0, 0, 0)}
