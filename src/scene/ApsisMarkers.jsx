@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Text, Billboard } from '@react-three/drei';
 import {
   getElementsAtDate,
   perifocalToEcliptic,
@@ -8,15 +9,16 @@ import {
 } from '../lib/orbital.js';
 import { useStore } from '../state/useStore.js';
 
-// Small spheres at perihelion (closest to Sun) and aphelion (farthest) for
-// orbits eccentric enough to be interesting. Mercury, Mars, Jupiter,
-// Saturn, Uranus, Pluto qualify. Venus / Earth / Neptune are too circular.
+// Apsis labels at perihelion ("P", closest to Sun) and aphelion ("A",
+// farthest). Letters instead of spheres so they read as MARKERS rather
+// than tiny bodies, and so Aaron picks up the vocabulary on sight.
+// Billboarded — always face the camera.
 //
-// Like OrbitPath, positions are bucketed by century — they drift on
-// secular timescales, not per-frame. Recomputed when trueInclination toggles.
+// Filter: only show when e ≥ 0.04. Mercury, Mars, Jupiter, Saturn,
+// Uranus, Pluto qualify; Venus / Earth / Neptune are too circular.
 const PERI_COLOR = '#ff8c6e';
-const APO_COLOR = '#78b4ff';
-const MARKER_RADIUS = 0.5;
+const APO_COLOR  = '#78b4ff';
+const FONT_SIZE = 2.2;
 const MIN_E_FOR_DISPLAY = 0.04;
 const MS_PER_CENTURY = 36525 * 86400000;
 const J2000_MS = Date.UTC(2000, 0, 1, 12);
@@ -43,8 +45,8 @@ export function ApsisMarkers({ body }) {
     const a = el.a, e = el.e;
 
     return {
-      peri: perifocalToEcliptic({ nu: 0,         r: a * (1 - e), raan, argp, inc }),
-      apo:  perifocalToEcliptic({ nu: Math.PI,   r: a * (1 + e), raan, argp, inc }),
+      peri: perifocalToEcliptic({ nu: 0,       r: a * (1 - e), raan, argp, inc }),
+      apo:  perifocalToEcliptic({ nu: Math.PI, r: a * (1 + e), raan, argp, inc }),
     };
   }, [body, trueInclination, orbitBucket]);
 
@@ -55,14 +57,30 @@ export function ApsisMarkers({ body }) {
 
   return (
     <group>
-      <mesh position={[px, py, pz]}>
-        <sphereGeometry args={[MARKER_RADIUS, 12, 12]} />
-        <meshBasicMaterial color={PERI_COLOR} />
-      </mesh>
-      <mesh position={[ax, ay, az]}>
-        <sphereGeometry args={[MARKER_RADIUS, 12, 12]} />
-        <meshBasicMaterial color={APO_COLOR} />
-      </mesh>
+      <Billboard position={[px, py, pz]}>
+        <Text
+          color={PERI_COLOR}
+          fontSize={FONT_SIZE}
+          anchorX="center"
+          anchorY="middle"
+          outlineWidth={0.05}
+          outlineColor="#03040a"
+        >
+          P
+        </Text>
+      </Billboard>
+      <Billboard position={[ax, ay, az]}>
+        <Text
+          color={APO_COLOR}
+          fontSize={FONT_SIZE}
+          anchorX="center"
+          anchorY="middle"
+          outlineWidth={0.05}
+          outlineColor="#03040a"
+        >
+          A
+        </Text>
+      </Billboard>
     </group>
   );
 }
