@@ -115,8 +115,14 @@ export function Sun() {
         {/* The 2k_sun.jpg from Solar System Scope is ALREADY an H-alpha /
             chromosphere-style equirectangular projection (deep red-orange
             with granulation + prominence patterns). Render it as-is.
-            Multiplying by anything other than #ffffff just dims the source. */}
+
+            `key={texture ? 'loaded' : 'loading'}` forces React to remount
+            the material when the texture finishes loading — otherwise the
+            shader was compiled without map support (texture was null at
+            first render) and never re-compiles when map is set. That's
+            why the sphere was rendering as a flat white dot. */}
         <meshBasicMaterial
+          key={texture ? 'loaded' : 'loading'}
           map={texture}
           color={hovered ? '#fff0e0' : '#ffffff'}
         />
