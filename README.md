@@ -74,18 +74,33 @@ Pluto's 17° tilt orient correctly relative to Neptune (and not just visibly
 
 ## Status
 
-Scaffold v0.1 — directory tree, dark-glass UI shell, R3F canvas with Sun
-and starfield rendering. Planet rendering + orbital math land in the
-next pass. v1.1 (moons) follows once planets are rock-solid.
+**v1.0 — locked 2026-06-11.** All v1 features shipped:
 
-## Roadmap
+- 8 planets + Pluto with J2000 date-accurate positions (JPL Keplerian
+  Elements 1800–2050 AD; NSSDC for Pluto).
+- Proper Ω/i/ω → ecliptic Cartesian transform (no more POC x-tilt
+  approximation). Inclination toggle flattens orbits to ecliptic.
+- Real planet textures (Solar System Scope CC-BY 4.0; NASA New Horizons
+  for Pluto).
+- Sun: H-alpha-style chromosphere texture, differential rotation shader
+  (equator ~24.5d, poles ~34.4d, sin² interp), Fresnel + fbm noise
+  prominences shader, two-mode lighting (natural inverse-square vs.
+  artificially uniform).
+- Real planetary rotations from each body's rot period, including
+  retrograde for Venus and Uranus. Toggleable + slow-mode damper.
+- Clickable bodies → InfoPanel with full NSSDC data.
+- All vantage points (sun, every planet, free flight).
+- Logarithmic date-scaled speed control (0.001× to 100×).
+- Peri/aphelion markers as billboarded P/A letters at the limb.
+- Mobile responsive (top bar horizontal scroll, info panel pushed below).
+- ESC closes info panel, ARIA roles in place.
 
-- **v1**: 8 planets + Pluto with J2000 date-accurate positions,
-  proper Ω/i/ω inclination, real textures, clickable data panels,
-  all vantage points, date scrubber.
+## Roadmap (post v1.0)
+
 - **v1.1**: major moons (Luna, Io/Europa/Ganymede/Callisto,
   Titan/Enceladus, Triton, Charon).
 - **v1.2**: flybys (pre-canned cinematic camera paths).
+- **v1.3**: real Earth night-side map + cloud layer, real Saturn ring detail.
 
 ## Dev
 
