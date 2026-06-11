@@ -45,6 +45,8 @@ export function ControlBar() {
   const toggleSlowRotation = useStore((s) => s.toggleSlowRotation);
   const naturalLight       = useStore((s) => s.naturalLight);
   const toggleNaturalLight = useStore((s) => s.toggleNaturalLight);
+  const showMoons          = useStore((s) => s.showMoons);
+  const toggleMoons        = useStore((s) => s.toggleMoons);
 
   const sliderPos = speedToSlider(speed);
 
@@ -101,6 +103,13 @@ export function ControlBar() {
       >
         <input type="checkbox" checked={naturalLight} onChange={toggleNaturalLight} />
         {' '}natural light
+      </label>
+      <label
+        className="toggle"
+        title="Master switch for moons. Even when ON, moons only appear once you're close enough to their parent planet."
+      >
+        <input type="checkbox" checked={showMoons} onChange={toggleMoons} />
+        {' '}moons
       </label>
 
       <span className="hint">click a planet for data · scroll to zoom</span>

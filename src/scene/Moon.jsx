@@ -76,15 +76,20 @@ export function Moon({ name, moon, parent }) {
   const radius = useMemo(() => moonRadius(moon.dia), [moon.dia]);
   const orbitRadius = useMemo(() => orbitRadiusSceneUnits(moon, parent), [moon, parent]);
 
-  // LOD threshold: only show the moon when the camera is close enough to
-  // its parent for the moon's apparent diameter to be meaningful.
-  // Threshold is generous so flying around the system smoothly reveals
-  // moons as you approach the gas giants.
-  const LOD_DISTANCE = orbitRadius * 25 + 60;
+  // LOD threshold: only show the moon when the camera is reasonably
+  // close to its parent. Tighter than the first cut — moons stay hidden
+  // at the default zoom level and fade in as you actually approach a
+  // planet. Tuning: Callisto (orbitRadius ~6) → ~73 unit threshold;
+  // default camera-to-Jupiter distance is ~95, so you have to move in.
+  const LOD_DISTANCE = orbitRadius * 8 + 25;
 
   useFrame(() => {
     if (!ref.current) return;
-    const { epochMs, spinEpochMs, trueInclination } = useStore.getState();
+    const { epochMs, spinEpochMs, trueInclination, showMoons } = useStore.getState();
+    if (!showMoons) {
+      if (visible) setVisible(false);
+      return;
+    }
 
     // Parent's heliocentric position
     const parentAU = bodyPositionAU(parent, epochMs, { useInclination: trueInclination });
