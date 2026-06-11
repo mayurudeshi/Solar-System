@@ -97,10 +97,36 @@ Pluto's 17° tilt orient correctly relative to Neptune (and not just visibly
 
 ## Roadmap (post v1.0)
 
-- **v1.1**: major moons (Luna, Io/Europa/Ganymede/Callisto,
-  Titan/Enceladus, Triton, Charon).
-- **v1.2**: flybys (pre-canned cinematic camera paths).
-- **v1.3**: real Earth night-side map + cloud layer, real Saturn ring detail.
+- **v1.1**: ✅ shipped — 11 major moons (Luna; Phobos/Deimos;
+  Io/Europa/Ganymede/Callisto; Titan/Enceladus; Triton; Charon)
+  with NASA / mission imagery for 10 of 11.
+- **v1.2**: flybys (pre-canned cinematic camera paths through the
+  gas giants, inner planet sprint, Pluto encounter).
+- **v1.3**: real Earth night-side map + cloud layer.
+
+## Backlog (unscheduled — pick by impact)
+
+- **Pluto color completeness.** Current swap fixed the half-rendered
+  sphere but lost the NASA enhanced-color palette. Real fix: custom
+  shader that blends the NASA color mosaic across the imaged
+  hemisphere with the grayscale full-coverage base everywhere else.
+- **Saturn ring quality + zoom transition.** Current ring is one
+  generic alpha-mapped disc. Improve: (1) higher-resolution real ring
+  texture showing the Cassini Division and the major bands at low
+  zoom; (2) at high zoom — when the user is close enough to study —
+  transition from the flat disc into a particle field of fragmented
+  ice/rock/dust chunks orbiting at differential rates. Real Saturn
+  rings are 99% ice particles ranging from grains to bus-sized
+  boulders; the disc IS an artifact of distance.
+- **Charon equirectangular.** NASA disc projection makes the back
+  hemisphere distort. Real fix: Lambert-azimuthal-to-equirectangular
+  reprojection of the disc, OR hand-stitched composite with Hubble
+  pre-encounter data for the unimaged side.
+- **Deimos texture.** Currently color-only; 12 km diameter so pixel-
+  scale anyway, but a real Mars Express / MRO image would be honest.
+- **Earth cloud layer.** Separate transparent sphere just outside
+  Earth's surface with rotating cloud alpha map. Would also enable
+  the night-side light overlay on the dark hemisphere.
 
 ## Dev
 
