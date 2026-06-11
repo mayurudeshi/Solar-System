@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useStore } from '../state/useStore.js';
 import { BODIES } from '../data/bodies.js';
-import { spinAtEpoch, DEG } from '../lib/orbital.js';
+import { DEG } from '../lib/orbital.js';
 
 // Sun: textured sphere + corona glow + point light. The Sun is its own
 // light source (planets get lit by the point light), so we use
@@ -108,6 +108,102 @@ const PROMINENCE_FRAGMENT = /* glsl */ `
   }
 `;
 
+// ── Differential rotation shader ─────────────────────────────────────────
+// Real Sun rotates faster at the equator (~24.5 days) than at the poles
+// (~35 days) because it's a plasma, not a solid. We render the photosphere
+// with a custom shader that samples the texture with a U-offset that
+// depends on LATITUDE — so equatorial features visibly outpace polar
+// features as time advances. Period at latitude φ interpolates between
+// the equatorial and polar rates by sin²(φ), which is the standard
+// approximation of the Snodgrass-Ulrich profile to first order.
+const PHOTOSPHERE_VERTEX = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const PHOTOSPHERE_FRAGMENT = /* glsl */ `
+  uniform sampler2D uMap;
+  uniform float uTimeDays;
+  uniform vec3 uTint;
+  varying vec2 vUv;
+
+  #define PI 3.14159265358979
+  #define EQ_PERIOD_DAYS 24.47
+  #define POLE_PERIOD_DAYS 34.4
+
+  void main() {
+    // UV.v: 0 at south pole, 0.5 at equator, 1 at north pole.
+    float lat = (vUv.y - 0.5) * PI;
+    float sinLat2 = sin(lat) * sin(lat);
+
+    // Period at this latitude (linear interp in sin²(lat))
+    float periodDays = mix(EQ_PERIOD_DAYS, POLE_PERIOD_DAYS, sinLat2);
+
+    // Fractional rotations completed since reference. U is east-west;
+    // negative offset makes features drift to +U (eastward) over time.
+    float uOffset = -uTimeDays / periodDays;
+    vec2 sampleUv = vec2(fract(vUv.x + uOffset), vUv.y);
+
+    vec4 col = texture2D(uMap, sampleUv);
+    gl_FragColor = vec4(col.rgb * uTint, col.a);
+  }
+`;
+
+function Photosphere({ texture, hovered, eventHandlers }) {
+  const matRef = useRef();
+  // Snapshot time at first render so we subtract a stable base — keeps
+  // the float32 uniform value small even after the simulation has been
+  // running for a while. Without this, spinEpochMs ≈ 1.7e12 quickly
+  // loses precision in the shader and rotation goes choppy.
+  const refMs = useMemo(() => Date.now(), []);
+
+  // Equirectangular textures need to wrap horizontally so the fract()
+  // U-offset doesn't reveal a seam.
+  useEffect(() => {
+    if (texture) {
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.needsUpdate = true;
+    }
+  }, [texture]);
+
+  const uniforms = useMemo(
+    () => ({
+      uMap: { value: texture },
+      uTimeDays: { value: 0 },
+      uTint: { value: new THREE.Color(1, 1, 1) },
+    }),
+    [] // create once; we re-bind uMap below if texture changes
+  );
+
+  useEffect(() => {
+    uniforms.uMap.value = texture;
+  }, [texture, uniforms]);
+
+  useFrame(() => {
+    if (!matRef.current) return;
+    const { spinEpochMs, showRotation, slowRotation } = useStore.getState();
+    let deltaMs = showRotation ? spinEpochMs - refMs : 0;
+    if (slowRotation) deltaMs *= 0.1;
+    matRef.current.uniforms.uTimeDays.value = deltaMs / 86400000;
+    matRef.current.uniforms.uTint.value.set(hovered ? '#fff0e0' : '#ffffff');
+  });
+
+  return (
+    <mesh {...eventHandlers}>
+      <sphereGeometry args={[3.4, 64, 64]} />
+      <shaderMaterial
+        ref={matRef}
+        uniforms={uniforms}
+        vertexShader={PHOTOSPHERE_VERTEX}
+        fragmentShader={PHOTOSPHERE_FRAGMENT}
+      />
+    </mesh>
+  );
+}
+
 function SunProminences() {
   const materialRef = useRef();
   // Stable uniforms object — re-creating per frame would lose GPU state.
@@ -191,20 +287,6 @@ export function Sun() {
   const naturalLight = useStore((s) => s.naturalLight);
   const [hovered, setHovered] = useState(false);
   const texture = useSunTexture();
-  const spinRef = useRef();
-
-  // Same spin pipeline as the planets — driven by spinEpochMs (advances
-  // even when paused), gated by the showRotation toggle, damped by
-  // slowRotation. Sun rotation period 600.96 hr = ~25 Earth days at the
-  // equator (differential rotation; the polar regions actually take ~35
-  // days, but we use the equatorial value for the whole texture).
-  useFrame(() => {
-    if (!spinRef.current) return;
-    const { spinEpochMs, showRotation, slowRotation } = useStore.getState();
-    spinRef.current.rotation.y = showRotation
-      ? spinAtEpoch(BODIES.Sun.rot, spinEpochMs, slowRotation)
-      : 0;
-  });
 
   const onClick = (e) => {
     e.stopPropagation();
@@ -223,30 +305,29 @@ export function Sun() {
   return (
     <group>
       {/* Axial tilt (7.25° to ecliptic) nested as its own group so the
-          spin happens around the Sun's tilted local Y axis. */}
+          differential rotation happens around the Sun's tilted local Y axis.
+          The shader inside Photosphere handles the actual rotation —
+          there's no mesh.rotation.y to set, because each latitude rotates
+          at a different rate. */}
       <group rotation={[0, 0, BODIES.Sun.axial * DEG]}>
-        <mesh
-          ref={spinRef}
-          onClick={onClick}
-          onPointerOver={onPointerOver}
-          onPointerOut={onPointerOut}
-        >
-          <sphereGeometry args={[3.4, 64, 64]} />
-          {/* The 2k_sun.jpg from Solar System Scope is ALREADY an H-alpha /
-            chromosphere-style equirectangular projection (deep red-orange
-            with granulation + prominence patterns). Render it as-is.
-
-            `key={texture ? 'loaded' : 'loading'}` forces React to remount
-            the material when the texture finishes loading — otherwise the
-            shader was compiled without map support (texture was null at
-            first render) and never re-compiles when map is set. That's
-            why the sphere was rendering as a flat white dot. */}
-          <meshBasicMaterial
-            key={texture ? 'loaded' : 'loading'}
-            map={texture}
-            color={hovered ? '#fff0e0' : '#ffffff'}
+        {texture ? (
+          <Photosphere
+            texture={texture}
+            hovered={hovered}
+            eventHandlers={{ onClick, onPointerOver, onPointerOut }}
           />
-        </mesh>
+        ) : (
+          /* Fallback while the H-alpha texture loads. Flat orange disc with
+             the same click handlers so the Sun is selectable immediately. */
+          <mesh
+            onClick={onClick}
+            onPointerOver={onPointerOver}
+            onPointerOut={onPointerOut}
+          >
+            <sphereGeometry args={[3.4, 32, 32]} />
+            <meshBasicMaterial color="#ff5530" />
+          </mesh>
+        )}
       </group>
       <SunProminences />
       <SunCorona />
