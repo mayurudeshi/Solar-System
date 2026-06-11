@@ -130,11 +130,17 @@ export function Moon({ name, moon, parent }) {
     document.body.style.cursor = '';
   };
 
-  if (!visible) return null;
-
+  // CRITICAL: keep the mesh mounted even when hidden. If we `return null`
+  // here, the ref goes null on the next render, and the `if (!ref.current)
+  // return;` guard at the top of useFrame early-returns forever — the LOD
+  // check never re-fires and the moon stays gone. Use Three.js's
+  // `visible` prop instead so the object stays in the scene graph
+  // (invisible, non-raycastable, ~zero cost) and can be revealed when
+  // the camera approaches.
   return (
     <mesh
       ref={ref}
+      visible={visible}
       onClick={onClick}
       onPointerOver={onPointerOver}
       onPointerOut={onPointerOut}
