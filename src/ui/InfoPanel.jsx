@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useStore } from '../state/useStore.js';
 import { BODIES } from '../data/bodies.js';
+import { MOONS } from '../data/moons.js';
 
 function fmt(n) { return n.toLocaleString(); }
 
@@ -79,24 +80,55 @@ function PlanetPanel({ body }) {
   );
 }
 
+function MoonPanel({ moon }) {
+  return (
+    <>
+      <p className="info-sub">
+        Moon of {moon.parent} · orbits at {fmt(Math.round(moon.a_km))} km in {moon.period_d.toFixed(2)} days
+      </p>
+      <table className="info-table">
+        <tbody>
+          <tr><td>Parent</td><td>{moon.parent}</td></tr>
+          <tr><td>Diameter</td><td>{fmt(moon.dia)} km</td></tr>
+          <tr><td>vs Earth's Moon</td><td>{(moon.dia / 3474).toFixed(2)}×</td></tr>
+          <tr><td>Distance from parent</td><td>{fmt(Math.round(moon.a_km))} km</td></tr>
+          <tr><td>Orbital period</td><td>{
+            moon.period_d < 1
+              ? `${(moon.period_d * 24).toFixed(2)} hrs`
+              : `${moon.period_d.toFixed(2)} days`
+          }</td></tr>
+          <tr><td>Eccentricity</td><td>{moon.e.toFixed(4)}</td></tr>
+          <tr><td>Inclination</td><td>{moon.inc.toFixed(2)}°{moon.inc > 90 ? ' (retrograde)' : ''}</td></tr>
+          <tr><td>Rotation</td><td>{rotationText(moon.rot)}</td></tr>
+        </tbody>
+      </table>
+      <p className="info-fact">{moon.fact}</p>
+    </>
+  );
+}
+
 export function InfoPanel() {
   const selected = useStore((s) => s.selected);
   const setSelected = useStore((s) => s.setSelected);
   const body = selected ? BODIES[selected] : null;
+  const moon = selected && !body ? MOONS[selected] : null;
+  const hasSelection = !!(body || moon);
 
   useEffect(() => {
-    if (!body) return;
+    if (!hasSelection) return;
     const onKey = (e) => { if (e.key === 'Escape') setSelected(null); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [body, setSelected]);
+  }, [hasSelection, setSelected]);
+
+  const swatchColor = body?.color || moon?.color || '#ffffff';
 
   return (
     <aside
-      className={`info-panel${body ? ' show' : ''}`}
+      className={`info-panel${hasSelection ? ' show' : ''}`}
       role="dialog"
       aria-labelledby="info-panel-title"
-      aria-hidden={!body}
+      aria-hidden={!hasSelection}
     >
       <button
         className="info-close"
@@ -105,13 +137,15 @@ export function InfoPanel() {
       >
         ✕
       </button>
-      {body && (
+      {hasSelection && (
         <>
           <h2 id="info-panel-title">
-            <span className="info-swatch" style={{ background: body.color }} />
+            <span className="info-swatch" style={{ background: swatchColor }} />
             {selected}
           </h2>
-          {body.isStar ? <StarPanel body={body} /> : <PlanetPanel body={body} />}
+          {body?.isStar && <StarPanel body={body} />}
+          {body && !body.isStar && <PlanetPanel body={body} />}
+          {moon && <MoonPanel moon={moon} />}
         </>
       )}
     </aside>

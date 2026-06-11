@@ -4,9 +4,11 @@ import { Starfield } from './Starfield.jsx';
 import { Planet } from './Planet.jsx';
 import { OrbitPath } from './OrbitPath.jsx';
 import { ApsisMarkers } from './ApsisMarkers.jsx';
+import { Moon } from './Moon.jsx';
 import { SimClock } from './SimClock.jsx';
 import { VantageCamera } from './VantageCamera.jsx';
 import { BODIES, PLANET_NAMES } from '../data/bodies.js';
+import { MOONS, MOON_NAMES } from '../data/moons.js';
 
 export function Scene() {
   return (
@@ -27,6 +29,14 @@ export function Scene() {
       ))}
       {PLANET_NAMES.map((name) => (
         <ApsisMarkers key={`apsis-${name}`} body={BODIES[name]} />
+      ))}
+      {MOON_NAMES.map((name) => (
+        <Moon
+          key={`moon-${name}`}
+          name={name}
+          moon={MOONS[name]}
+          parent={BODIES[MOONS[name].parent]}
+        />
       ))}
       <SimClock />
       <VantageCamera />
