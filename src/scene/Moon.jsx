@@ -5,6 +5,7 @@ import {
   bodyPositionAU,
   auVecToSceneUnits,
   eclipticToThreePosition,
+  spinAtEpoch,
   DEG,
 } from '../lib/orbital.js';
 import { useStore } from '../state/useStore.js';
@@ -100,6 +101,7 @@ function moonRelativePosition(moon, epochMs) {
 
 export function Moon({ name, moon, parent }) {
   const ref = useRef();
+  const spinMeshRef = useRef();
   const { camera } = useThree();
   const setSelected = useStore((s) => s.setSelected);
   const [hovered, setHovered] = useState(false);
@@ -123,7 +125,7 @@ export function Moon({ name, moon, parent }) {
 
   useFrame(() => {
     if (!ref.current) return;
-    const { epochMs, spinEpochMs, trueInclination, showMoons } = useStore.getState();
+    const { epochMs, spinEpochMs, trueInclination, showMoons, showRotation, slowRotation } = useStore.getState();
     if (!showMoons) {
       if (visible) setVisible(false);
       return;
@@ -144,6 +146,17 @@ export function Moon({ name, moon, parent }) {
     const z = pz + rel.z * orbitRadius;
 
     ref.current.position.set(x, y, z);
+
+    // Spin. All major moons in our set are tidally locked — rot equals
+    // orbital period × 24, so the rotation we apply here is visually
+    // synchronous with the orbital revolution. Same face presented to
+    // the parent — Luna's familiar tidal-lock signature, but for every
+    // moon, because that's how tides work for everyone close enough.
+    if (spinMeshRef.current) {
+      spinMeshRef.current.rotation.y = showRotation
+        ? spinAtEpoch(moon.rot, spinEpochMs, slowRotation)
+        : 0;
+    }
 
     // LOD: distance from camera to parent
     const dx = camera.position.x - px;
@@ -177,7 +190,7 @@ export function Moon({ name, moon, parent }) {
   // the camera approaches.
   return (
     <group ref={ref} visible={visible}>
-      <mesh>
+      <mesh ref={spinMeshRef}>
         <sphereGeometry args={[radius, 32, 32]} />
         {/* key={texture ? 'with-tex' : 'no-tex'} remounts the material when
             the async texture lands — same shader-compile trick used for
