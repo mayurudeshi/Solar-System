@@ -3,6 +3,7 @@ import { Sun } from './Sun.jsx';
 import { Starfield } from './Starfield.jsx';
 import { Planet } from './Planet.jsx';
 import { OrbitPath } from './OrbitPath.jsx';
+import { ApsisMarkers } from './ApsisMarkers.jsx';
 import { SimClock } from './SimClock.jsx';
 import { VantageCamera } from './VantageCamera.jsx';
 import { BODIES, PLANET_NAMES } from '../data/bodies.js';
@@ -23,6 +24,9 @@ export function Scene() {
       ))}
       {PLANET_NAMES.map((name) => (
         <OrbitPath key={`orbit-${name}`} body={BODIES[name]} />
+      ))}
+      {PLANET_NAMES.map((name) => (
+        <ApsisMarkers key={`apsis-${name}`} body={BODIES[name]} />
       ))}
       <SimClock />
       <VantageCamera />
