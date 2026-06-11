@@ -33,6 +33,7 @@ export const BODIES = {
     isStar: true,
     a: 0, e: 0, inc: 0, period: 0,
     dia: 1391400, rot: 600.96, moons: 0, axial: 7.25, color: '#ffe9a8',
+    textureUrl: '/textures/2k_sun.jpg',
     mass_kg: 1.989e30, mass_earth: 333000, gravity_ms2: 274,
     surface_temp_c: 5500, core_temp_c: 15000000,
     age_gyr: 4.6, composition: '73% H, 25% He, 2% heavier',
@@ -44,6 +45,7 @@ export const BODIES = {
     a: 0.387, e: 0.2056, inc: 7.00, lop: 77, period: 0.241,
     dia: 4879, rot: 1407.6, moons: 0, axial: 0.03, color: '#b7a47e',
     mass_kg: 3.3010e23, mass_earth: 0.0553, gravity_ms2: 3.70, mean_temp_c: 167,
+    textureUrl: '/textures/2k_mercury.jpg',
     fact: 'Smallest planet and closest to the Sun. A single day (sunrise to sunrise) lasts about 176 Earth days — longer than its 88-day year.',
     elements: {
       a: 0.38709843,      a_dot: 0.00000000,
@@ -58,6 +60,7 @@ export const BODIES = {
     a: 0.723, e: 0.0068, inc: 3.39, lop: 131, period: 0.615,
     dia: 12104, rot: -5832.5, moons: 0, axial: 177.4, color: '#d9b772',
     mass_kg: 4.8673e24, mass_earth: 0.815, gravity_ms2: 8.87, mean_temp_c: 464,
+    textureUrl: '/textures/2k_venus_surface.jpg',
     fact: 'Hottest planet at ~465°C under a runaway greenhouse. It rotates backwards, and its day is longer than its year.',
     elements: {
       a: 0.72332102,      a_dot: -0.00000026,
@@ -72,6 +75,7 @@ export const BODIES = {
     a: 1.000, e: 0.0167, inc: 0.00, lop: 103, period: 1.0,
     dia: 12742, rot: 23.93, moons: 1, axial: 23.44, color: '#4d9be8',
     mass_kg: 5.9722e24, mass_earth: 1.000, gravity_ms2: 9.80, mean_temp_c: 15,
+    textureUrl: '/textures/2k_earth_daymap.jpg',
     fact: 'The only known world with life. Its 23.44° axial tilt is what gives us seasons.',
     elements: {
       a: 1.00000018,      a_dot: -0.00000003,
@@ -86,6 +90,7 @@ export const BODIES = {
     a: 1.524, e: 0.0934, inc: 1.85, lop: 336, period: 1.881,
     dia: 6779, rot: 24.62, moons: 2, axial: 25.19, color: '#e0633a',
     mass_kg: 6.4169e23, mass_earth: 0.107, gravity_ms2: 3.71, mean_temp_c: -65,
+    textureUrl: '/textures/2k_mars.jpg',
     fact: 'Home to Olympus Mons, the tallest volcano in the solar system at ~22 km. Its two tiny moons are likely captured asteroids.',
     elements: {
       a: 1.52371243,      a_dot: 0.00000097,
@@ -100,6 +105,7 @@ export const BODIES = {
     a: 5.203, e: 0.0489, inc: 1.30, lop: 14, period: 11.86,
     dia: 139820, rot: 9.93, moons: 95, axial: 3.13, color: '#cf9f6e',
     mass_kg: 1.8982e27, mass_earth: 317.8, gravity_ms2: 24.79, mean_temp_c: -110,
+    textureUrl: '/textures/2k_jupiter.jpg',
     fact: 'The giant — more massive than all other planets combined. The Great Red Spot is a storm wider than Earth that has raged for centuries.',
     elements: {
       a: 5.20248019,      a_dot: -0.00002864,
@@ -114,6 +120,8 @@ export const BODIES = {
     a: 9.537, e: 0.0565, inc: 2.49, lop: 93, period: 29.45,
     dia: 116460, rot: 10.66, moons: 146, axial: 26.73, color: '#e3c78a',
     mass_kg: 5.6834e26, mass_earth: 95.16, gravity_ms2: 10.44, mean_temp_c: -140,
+    textureUrl: '/textures/2k_saturn.jpg',
+    ringTextureUrl: '/textures/2k_saturn_ring_alpha.png',
     fact: 'Famous for its spectacular ring system of ice and rock. So low in density it would float in water, if you had a big enough tub.',
     elements: {
       a: 9.54149883,      a_dot: -0.00003065,
@@ -128,6 +136,7 @@ export const BODIES = {
     a: 19.19, e: 0.0457, inc: 0.77, lop: 173, period: 84.0,
     dia: 50724, rot: -17.24, moons: 28, axial: 97.77, color: '#7fe0cf',
     mass_kg: 8.6810e25, mass_earth: 14.54, gravity_ms2: 8.69, mean_temp_c: -195,
+    textureUrl: '/textures/2k_uranus.jpg',
     fact: 'Tipped on its side at ~98°, it essentially rolls around the Sun. Each pole gets ~42 years of continuous sunlight, then 42 of darkness.',
     elements: {
       a: 19.18797948,     a_dot: -0.00020455,
@@ -142,6 +151,7 @@ export const BODIES = {
     a: 30.07, e: 0.0113, inc: 1.77, lop: 48, period: 164.8,
     dia: 49244, rot: 16.11, moons: 16, axial: 28.32, color: '#6f9bea',
     mass_kg: 1.0241e26, mass_earth: 17.15, gravity_ms2: 11.15, mean_temp_c: -200,
+    textureUrl: '/textures/2k_neptune.jpg',
     fact: 'The windiest planet, with gusts over 2,000 km/h. It was found by math — predicted from Uranus’s wobble before anyone saw it.',
     elements: {
       a: 30.06952752,     a_dot: 0.00006447,
@@ -157,6 +167,7 @@ export const BODIES = {
     a: 39.48, e: 0.2488, inc: 17.16, lop: 224, period: 248.0,
     dia: 2376, rot: -153.3, moons: 5, axial: 122.5, color: '#c2a98f',
     mass_kg: 1.303e22, mass_earth: 0.0022, gravity_ms2: 0.62, mean_temp_c: -225,
+    textureUrl: '/textures/2k_pluto.jpg',
     fact: 'Dwarf planet on a 17° tilted, stretched orbit that dips inside Neptune’s — but a 3:2 resonance means they can never collide.',
     elements: {
       a: 39.48168677,     a_dot: -0.00076912,

@@ -98,4 +98,10 @@ npm run dev
 
 Orbital data: NASA NSSDC Planetary Fact Sheet.
 J2000 elements: JPL Solar System Dynamics.
-Textures: Solar System Scope (CC-BY 4.0, attribution required).
+
+Textures (CC-BY 4.0 / public domain):
+- Sun, Mercury, Venus, Earth, Mars, Jupiter, Saturn (incl. ring alpha),
+  Uranus, Neptune: **Solar System Scope**
+  (https://www.solarsystemscope.com/textures/) — CC-BY 4.0
+- Pluto: NASA New Horizons mission global color map mosaic — public domain
+  (https://science.nasa.gov/resource/pluto-global-color-map/)

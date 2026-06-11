@@ -1,4 +1,4 @@
-import { useRef, useMemo, useState } from 'react';
+import { useRef, useMemo, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
@@ -13,6 +13,10 @@ const TWO_PI = Math.PI * 2;
 const MS_PER_HOUR = 3600000;
 const SLOW_FACTOR = 10;
 
+// Procedural fallback. Stays as the FIRST RENDER while the real CC-BY 4.0
+// texture is fetched in the background, so the planet appears immediately
+// and then sharpens up. Also the permanent texture when textureUrl is
+// missing (currently nothing — every body has one).
 function makeProceduralTexture(hex, banded) {
   const c = document.createElement('canvas');
   c.width = 256; c.height = 128;
@@ -39,23 +43,22 @@ function bodyRadius(body) {
   return body.dia > 40000 ? 2.4 : 0.9;
 }
 
-function SaturnRings({ planetRadius }) {
+function SaturnRings({ planetRadius, ringTexture }) {
   return (
     <mesh rotation={[Math.PI / 2, 0, 0]}>
-      <ringGeometry args={[planetRadius * 1.3, planetRadius * 2.2, 64]} />
+      <ringGeometry args={[planetRadius * 1.3, planetRadius * 2.2, 96]} />
       <meshBasicMaterial
-        color="#e3c78a"
+        map={ringTexture}
+        color={ringTexture ? '#ffffff' : '#e3c78a'}
         side={THREE.DoubleSide}
         transparent
-        opacity={0.5}
+        opacity={ringTexture ? 0.9 : 0.5}
+        alphaTest={ringTexture ? 0.02 : 0}
       />
     </mesh>
   );
 }
 
-// Spin angle (radians) at a given epoch, given body rotation period in hours.
-// Sign matches the body's rotation direction (negative rot = retrograde).
-// Tied to simulated time, so scrubbing the date scrubs the rotation too.
 function spinAtEpoch(rotHrs, epochMs, slow) {
   const periodMs = Math.abs(rotHrs) * MS_PER_HOUR;
   const sign = rotHrs < 0 ? -1 : 1;
@@ -63,10 +66,37 @@ function spinAtEpoch(rotHrs, epochMs, slow) {
   return sign * ((epochMs * factor) / periodMs) * TWO_PI;
 }
 
+// Async-load a real texture; resolve to null on failure so the procedural
+// fallback persists.
+function useAsyncTexture(url) {
+  const [tex, setTex] = useState(null);
+  useEffect(() => {
+    if (!url) { setTex(null); return; }
+    let cancelled = false;
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      url,
+      (loaded) => {
+        if (cancelled) { loaded.dispose(); return; }
+        loaded.colorSpace = THREE.SRGBColorSpace;
+        loaded.anisotropy = 4;
+        setTex(loaded);
+      },
+      undefined,
+      () => { /* silent fail — procedural fallback remains */ }
+    );
+    return () => {
+      cancelled = true;
+      setTex((t) => { if (t) t.dispose(); return null; });
+    };
+  }, [url]);
+  return tex;
+}
+
 export function Planet({ name, body }) {
-  const orbitGroupRef = useRef();   // outer: at planet's heliocentric position
-  const tiltGroupRef = useRef();    // middle: tilted by axial (fixed)
-  const spinMeshRef = useRef();     // inner: spins around the tilted Y axis
+  const orbitGroupRef = useRef();
+  const tiltGroupRef = useRef();
+  const spinMeshRef = useRef();
   const setSelected = useStore((s) => s.setSelected);
   const [hovered, setHovered] = useState(false);
 
@@ -75,7 +105,11 @@ export function Planet({ name, body }) {
     () => ['Jupiter', 'Saturn', 'Uranus', 'Neptune'].includes(name),
     [name]
   );
-  const texture = useMemo(() => makeProceduralTexture(body.color, banded), [body, banded]);
+
+  const procedural = useMemo(() => makeProceduralTexture(body.color, banded), [body, banded]);
+  const real = useAsyncTexture(body.textureUrl);
+  const ringTexture = useAsyncTexture(body.ringTextureUrl);
+  const texture = real || procedural;
 
   const hitRadius = Math.max(radius * 1.6, 2.0);
 
@@ -83,15 +117,11 @@ export function Planet({ name, body }) {
     if (!orbitGroupRef.current) return;
     const { epochMs, spinEpochMs, trueInclination, showRotation, slowRotation } = useStore.getState();
 
-    // Heliocentric position — driven by epochMs (frozen when paused).
     const auPos = bodyPositionAU(body, epochMs, { useInclination: trueInclination });
     const scenePos = auVecToSceneUnits(auPos);
     const [x, y, z] = eclipticToThreePosition(scenePos);
     orbitGroupRef.current.position.set(x, y, z);
 
-    // Spin around the tilted local Y axis — driven by spinEpochMs, which
-    // KEEPS ADVANCING when paused. Lets you freeze the orbit at high
-    // speeds and study rotation alone.
     if (spinMeshRef.current) {
       spinMeshRef.current.rotation.y = showRotation
         ? spinAtEpoch(body.rot, spinEpochMs, slowRotation)
@@ -103,13 +133,11 @@ export function Planet({ name, body }) {
     e.stopPropagation();
     setSelected(name);
   };
-
   const onPointerOver = (e) => {
     e.stopPropagation();
     setHovered(true);
     document.body.style.cursor = 'pointer';
   };
-
   const onPointerOut = () => {
     setHovered(false);
     document.body.style.cursor = '';
@@ -117,13 +145,9 @@ export function Planet({ name, body }) {
 
   return (
     <group ref={orbitGroupRef}>
-      {/* Axial tilt nested as its own group so spin happens around the
-          planet's tilted local Y axis, not the world Y. Reviewer pointed
-          this out — Three.js Euler composition order makes the previous
-          `rotation={[0, 0, axial]}` + `rotation.y +=` combo wrong. */}
       <group ref={tiltGroupRef} rotation={[0, 0, body.axial * DEG]}>
         <mesh ref={spinMeshRef}>
-          <sphereGeometry args={[radius, 40, 40]} />
+          <sphereGeometry args={[radius, 48, 48]} />
           <meshStandardMaterial
             map={texture}
             roughness={0.85}
@@ -132,11 +156,10 @@ export function Planet({ name, body }) {
             emissiveIntensity={hovered ? 0.15 : 0}
           />
         </mesh>
-        {name === 'Saturn' && <SaturnRings planetRadius={radius} />}
+        {name === 'Saturn' && (
+          <SaturnRings planetRadius={radius} ringTexture={ringTexture} />
+        )}
       </group>
-      {/* Invisible hit-mesh — boosts pick target for Mercury/Mars touch input.
-          Sits at the body's orbit position, NOT inside the tilt group, so
-          it's a clean upright sphere regardless of axial tilt. */}
       <mesh
         onClick={onClick}
         onPointerOver={onPointerOver}
