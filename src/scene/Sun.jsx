@@ -37,25 +37,35 @@ function makeGlowTexture(stops) {
 }
 
 function SunCorona() {
-  // Two-layer sprite stack: inner halo (tight, bright) + outer corona
-  // (wide, diffuse). Both additive so they paint light, not shadow.
+  // Two-layer ANNULAR sprite stack — the center of each sprite is
+  // transparent so the textured sphere shows through, and the bright
+  // band sits OUTSIDE the sphere radius. Additive blending paints light
+  // around the photosphere instead of nuking it.
+  //
+  // Sphere radius is 3.4 scene units. The inner sprite is scale 16
+  // (8-unit radius), so sphere edge sits at fraction 0.425. The inner
+  // gradient stays transparent up to that boundary, peaks just outside,
+  // then fades. Outer corona is scale 40, sphere edge at 0.17 — its
+  // glow band starts there and fades to the far edge.
   const innerTex = useMemo(
     () =>
       makeGlowTexture([
-        [0.0, 'rgba(255, 240, 200, 0.95)'],
-        [0.25, 'rgba(255, 220, 130, 0.55)'],
-        [0.5, 'rgba(255, 180, 80, 0.18)'],
-        [1.0, 'rgba(255, 180, 80, 0)'],
+        [0.0,  'rgba(255, 240, 200, 0)'],
+        [0.40, 'rgba(255, 240, 200, 0)'],
+        [0.50, 'rgba(255, 220, 130, 0.50)'],
+        [0.65, 'rgba(255, 200,  80, 0.20)'],
+        [1.0,  'rgba(255, 180,  80, 0)'],
       ]),
     []
   );
   const outerTex = useMemo(
     () =>
       makeGlowTexture([
-        [0.0, 'rgba(255, 215, 120, 0.45)'],
-        [0.3, 'rgba(255, 180, 80, 0.18)'],
-        [0.7, 'rgba(255, 140, 60, 0.06)'],
-        [1.0, 'rgba(255, 140, 60, 0)'],
+        [0.0,  'rgba(255, 215, 120, 0)'],
+        [0.17, 'rgba(255, 215, 120, 0)'],
+        [0.30, 'rgba(255, 180,  80, 0.18)'],
+        [0.60, 'rgba(255, 150,  60, 0.06)'],
+        [1.0,  'rgba(255, 140,  60, 0)'],
       ]),
     []
   );
@@ -70,7 +80,7 @@ function SunCorona() {
           blending={THREE.AdditiveBlending}
         />
       </sprite>
-      <sprite scale={[36, 36, 1]}>
+      <sprite scale={[40, 40, 1]}>
         <spriteMaterial
           map={outerTex}
           transparent
