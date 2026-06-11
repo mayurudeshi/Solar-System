@@ -43,17 +43,20 @@ function SunCorona() {
   // its neighbor. Sprite is sized so the sphere edge (radius 3.4) sits
   // at fraction ~0.227 of the sprite half-width (scale 30 → 15 unit
   // radius), and the bright ramp peaks just outside that.
+  // H-alpha palette — red-orange dominated to match the chromosphere look
+  // (656 nm hydrogen emission). Peak alpha just past the sphere limb, smooth
+  // taper to zero.
   const glowTex = useMemo(
     () =>
       makeGlowTexture([
-        [0.00, 'rgba(255, 240, 200, 0.00)'],
-        [0.15, 'rgba(255, 240, 200, 0.03)'],
-        [0.20, 'rgba(255, 230, 180, 0.10)'],
-        [0.25, 'rgba(255, 220, 140, 0.28)'], // peak just past sphere edge
-        [0.32, 'rgba(255, 200, 100, 0.20)'],
-        [0.45, 'rgba(255, 180,  80, 0.10)'],
-        [0.65, 'rgba(255, 160,  70, 0.04)'],
-        [1.00, 'rgba(255, 150,  60, 0.00)'],
+        [0.00, 'rgba(255, 200, 150, 0.00)'],
+        [0.15, 'rgba(255, 180, 120, 0.03)'],
+        [0.20, 'rgba(255, 130,  70, 0.12)'],
+        [0.25, 'rgba(255,  90,  40, 0.32)'], // peak red-orange just past limb
+        [0.32, 'rgba(255,  70,  30, 0.22)'],
+        [0.45, 'rgba(220,  50,  20, 0.10)'],
+        [0.65, 'rgba(180,  40,  15, 0.04)'],
+        [1.00, 'rgba(150,  30,  10, 0.00)'],
       ]),
     []
   );
@@ -109,9 +112,12 @@ export function Sun() {
         onPointerOut={onPointerOut}
       >
         <sphereGeometry args={[3.4, 64, 64]} />
+        {/* H-alpha tint — multiplies the photospheric texture by a strong
+            red-orange so the granulation reads as the chromosphere layer
+            (the hydrogen-emission band at 656nm). Lifts slightly on hover. */}
         <meshBasicMaterial
           map={texture}
-          color={hovered ? '#fff4d6' : '#ffffff'}
+          color={hovered ? '#ff8550' : '#ff5530'}
         />
       </mesh>
       <SunCorona />
