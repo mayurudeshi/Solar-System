@@ -1,12 +1,14 @@
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { bodyPositionAU, auVecToSceneUnits, DEG } from '../lib/orbital.js';
+import {
+  bodyPositionAU,
+  auVecToSceneUnits,
+  eclipticToThreePosition,
+  DEG,
+} from '../lib/orbital.js';
 import { useStore } from '../state/useStore.js';
 
-// Procedural fallback texture — banded planets get horizontal stripes,
-// rocky planets get noisy speckle. Matches the POC's degraded-graceful
-// pattern; real Solar System Scope textures swap in at v1.1.
 function makeProceduralTexture(hex, banded) {
   const c = document.createElement('canvas');
   c.width = 256; c.height = 128;
@@ -29,15 +31,10 @@ function makeProceduralTexture(hex, banded) {
   return tex;
 }
 
-// Render diameter — body sphere radii are NOT to true scale. True scale
-// would make every planet a sub-pixel dot at the distances we're showing.
-// The POC's "small=0.9, big=2.4" split is preserved.
 function bodyRadius(body) {
   return body.dia > 40000 ? 2.4 : 0.9;
 }
 
-// Saturn ring as a flat ring geometry around the planet sphere.
-// Real ring texture swaps in at v1.1.
 function SaturnRings({ planetRadius }) {
   return (
     <mesh rotation={[Math.PI / 2, 0, 0]}>
@@ -55,10 +52,9 @@ function SaturnRings({ planetRadius }) {
 export function Planet({ name, body }) {
   const groupRef = useRef();
   const meshRef = useRef();
-  const date = useStore((s) => s.date);
   const setSelected = useStore((s) => s.setSelected);
+  const [hovered, setHovered] = useState(false);
 
-  // Texture, radius, banded — derived once per body.
   const radius = useMemo(() => bodyRadius(body), [body]);
   const banded = useMemo(
     () => ['Jupiter', 'Saturn', 'Uranus', 'Neptune'].includes(name),
@@ -66,17 +62,18 @@ export function Planet({ name, body }) {
   );
   const texture = useMemo(() => makeProceduralTexture(body.color, banded), [body, banded]);
 
-  // Re-compute position each frame, driven by the store's current `date`.
-  // (Cheap — 9 bodies × Kepler iteration per frame is ~negligible.)
+  // Boost small planets' raycaster hit-target without changing visible radius —
+  // reviewer 3's accessibility point. The invisible mesh is at 1.6× radius.
+  const hitRadius = Math.max(radius * 1.6, 2.0);
+
   useFrame(() => {
     if (!groupRef.current) return;
-    const auPos = bodyPositionAU(body, date);
+    const { epochMs, trueInclination } = useStore.getState();
+    const auPos = bodyPositionAU(body, epochMs, { useInclination: trueInclination });
     const scenePos = auVecToSceneUnits(auPos);
-    groupRef.current.position.set(scenePos.x, scenePos.z, -scenePos.y);
-    // ECL X→ scene X, ECL Z→ scene Y (vertical),
-    // ECL Y→ negative scene Z (right-handed → Three.js).
+    const [x, y, z] = eclipticToThreePosition(scenePos);
+    groupRef.current.position.set(x, y, z);
     if (meshRef.current) {
-      // Slow spin so the texture is alive on close-up; not physically accurate.
       meshRef.current.rotation.y += 0.003;
     }
   });
@@ -86,19 +83,40 @@ export function Planet({ name, body }) {
     setSelected(name);
   };
 
+  const onPointerOver = (e) => {
+    e.stopPropagation();
+    setHovered(true);
+    document.body.style.cursor = 'pointer';
+  };
+
+  const onPointerOut = () => {
+    setHovered(false);
+    document.body.style.cursor = '';
+  };
+
   return (
     <group ref={groupRef}>
       <mesh
         ref={meshRef}
         rotation={[0, 0, body.axial * DEG]}
-        onClick={onClick}
       >
         <sphereGeometry args={[radius, 40, 40]} />
         <meshStandardMaterial
           map={texture}
           roughness={0.85}
           metalness={0.0}
+          emissive={hovered ? new THREE.Color(body.color) : new THREE.Color(0, 0, 0)}
+          emissiveIntensity={hovered ? 0.15 : 0}
         />
+      </mesh>
+      {/* Invisible hit-mesh — boosts pick target for Mercury/Mars touch input. */}
+      <mesh
+        onClick={onClick}
+        onPointerOver={onPointerOver}
+        onPointerOut={onPointerOut}
+        visible={false}
+      >
+        <sphereGeometry args={[hitRadius, 16, 16]} />
       </mesh>
       {name === 'Saturn' && <SaturnRings planetRadius={radius} />}
     </group>

@@ -19,8 +19,6 @@
 //   x_ecl = (cos(Ω)·cos(ω+ν) - sin(Ω)·sin(ω+ν)·cos(i)) · r
 //   y_ecl = (sin(Ω)·cos(ω+ν) + cos(Ω)·sin(ω+ν)·cos(i)) · r
 //   z_ecl =  sin(ω+ν) · sin(i)                          · r
-//
-// All angles in radians, r and a in same units.
 
 import { trueAnomaly } from './kepler.js';
 
@@ -28,7 +26,7 @@ export const DEG = Math.PI / 180;
 export const RAD = 180 / Math.PI;
 
 export function perifocalToEcliptic({ nu, r, raan, argp, inc }) {
-  const u = argp + nu; // argument of latitude
+  const u = argp + nu;
   const cosO = Math.cos(raan), sinO = Math.sin(raan);
   const cosU = Math.cos(u),    sinU = Math.sin(u);
   const cosI = Math.cos(inc),  sinI = Math.sin(inc);
@@ -39,20 +37,12 @@ export function perifocalToEcliptic({ nu, r, raan, argp, inc }) {
   };
 }
 
-// Full Keplerian element → heliocentric ecliptic-J2000 Cartesian helper.
-// Inputs in radians. Returns {x, y, z} in same units as `a`.
 export function keplerianToCartesian({ a, e, M, raan, argp, inc }) {
   const { nu, r } = trueAnomaly(M, e, a);
   return perifocalToEcliptic({ nu, r, raan, argp, inc });
 }
 
 // ── Time / propagation ──────────────────────────────────────────────────
-//
-// J2000 epoch = 2000 January 1.5 TT = JD 2451545.0
-// JavaScript Date treats input as UTC; the small UT/TT difference (~64s)
-// is negligible at the precision of the JPL 1800-2050 elements set.
-//
-// T = (JD - 2451545.0) / 36525 = centuries since J2000.
 
 const J2000_EPOCH_MS = Date.UTC(2000, 0, 1, 12, 0, 0);
 const MS_PER_DAY = 86400000;
@@ -62,10 +52,6 @@ export function julianCenturiesSinceJ2000(date) {
   return (date.getTime() - J2000_EPOCH_MS) / MS_PER_DAY / DAYS_PER_CENTURY;
 }
 
-// Apply linear-rate corrections from JPL Keplerian elements table.
-// Input: body.elements object with {a, e, I, L, long_peri, raan} + *_dot
-// per-century rates; date as JS Date.
-// Output: same fields after propagation, still in degrees / AU.
 export function getElementsAtDate(elements, date) {
   const T = julianCenturiesSinceJ2000(date);
   return {
@@ -78,23 +64,32 @@ export function getElementsAtDate(elements, date) {
   };
 }
 
-// Normalize an angle in degrees to the half-open range [0, 360).
-function normalizeDeg(d) {
-  return ((d % 360) + 360) % 360;
+function normalizeDeg(d) { return ((d % 360) + 360) % 360; }
+
+// NaN-safe coercion: if epochMs is a number, build a Date; if it's invalid,
+// return null and let the caller substitute the origin.
+function toValidDate(epochMs) {
+  const ms = Number(epochMs);
+  if (!Number.isFinite(ms)) return null;
+  const d = new Date(ms);
+  if (!Number.isFinite(d.getTime())) return null;
+  return d;
 }
 
-// Heliocentric position of a body at a given date.
-// Returns {x, y, z} in AU, ecliptic-J2000 frame.
+// Heliocentric position of a body at a given epoch ms, in AU
+// (ecliptic-J2000 frame). When `useInclination=false`, the body is forced
+// onto the ecliptic plane (inc=0) — the "flatten orbits" UI toggle.
 //
-// This is the canonical date-accurate position function for the simulator.
-// Earth here is the Earth-Moon barycenter (JPL Keplerian set definition).
-export function bodyPositionAU(body, date) {
-  const el = getElementsAtDate(body.elements, date);
+// On invalid date input the function returns the origin rather than NaN,
+// so a downstream THREE position never gets corrupted.
+export function bodyPositionAU(body, epochMs, { useInclination = true } = {}) {
+  const date = toValidDate(epochMs);
+  if (!date) return { x: 0, y: 0, z: 0 };
 
-  // Mean anomaly = mean longitude - longitude of perihelion
+  const el = getElementsAtDate(body.elements, date);
   const M_deg = normalizeDeg(el.L - el.long_peri);
-  // Argument of perihelion = ϖ - Ω
   const argp_deg = el.long_peri - el.raan;
+  const inc_deg = useInclination ? el.I : 0;
 
   return keplerianToCartesian({
     a:    el.a,
@@ -102,25 +97,25 @@ export function bodyPositionAU(body, date) {
     M:    M_deg    * DEG,
     raan: el.raan  * DEG,
     argp: argp_deg * DEG,
-    inc:  el.I     * DEG,
+    inc:  inc_deg  * DEG,
   });
 }
 
-// Sample a body's orbit as N positions around the full ellipse, using the
-// body's elements at the given date for orientation. For rendering the
-// orbit path line.
-export function orbitPathAU(body, date, samples = 256) {
+// Sample a body's orbit as N positions around the full ellipse. Same
+// useInclination flag — orbits flatten with the toggle.
+export function orbitPathAU(body, epochMs, { useInclination = true, samples = 256 } = {}) {
+  const date = toValidDate(epochMs);
+  if (!date) return [];
+
   const el = getElementsAtDate(body.elements, date);
   const argp_deg = el.long_peri - el.raan;
   const raan = el.raan * DEG;
   const argp = argp_deg * DEG;
-  const inc  = el.I * DEG;
+  const inc  = (useInclination ? el.I : 0) * DEG;
   const a = el.a, e = el.e;
 
   const points = new Array(samples + 1);
   for (let k = 0; k <= samples; k++) {
-    // Sample eccentric anomaly evenly — this concentrates points near
-    // perihelion where the planet moves faster, which renders cleaner.
     const E = (k / samples) * 2 * Math.PI;
     const r = a * (1 - e * Math.cos(E));
     const nu = 2 * Math.atan2(
@@ -134,26 +129,26 @@ export function orbitPathAU(body, date, samples = 256) {
 
 // ── Scene scaling ───────────────────────────────────────────────────────
 //
-// True linear AU → scene units would put Pluto at ~26 × 39.5 = 1027 units
-// while Mercury sits at ~10 — visually unusable. Log compression keeps
-// inner planets visible while not losing outer planets to the far plane.
-// Toggle to true-linear is the v1.1 UI improvement.
+// True linear AU → scene units would put Pluto at ~26·39.5=1027 units
+// while Mercury sits at ~10. Log compression keeps inner planets visible
+// while not losing outer planets to the far plane.
 
 const SCALE = 26;
 export function auToSceneUnits(au) {
-  // log10(au * 9 + 1) is monotonic, 0 at AU=0, and produces:
-  //   Mercury 0.39 AU → ~9   Venus 0.72 → ~21   Earth 1.0 → ~26
-  //   Mars 1.52 → ~31  Jupiter 5.2 → ~47  Saturn 9.5 → ~55
-  //   Uranus 19.2 → ~63  Neptune 30.1 → ~67  Pluto 39.5 → ~71
   return Math.log10(au * 9 + 1) * SCALE;
 }
 
-// Scale a heliocentric AU position vector into scene units, preserving
-// direction (so the Ω/i/ω orientation survives the compression).
 export function auVecToSceneUnits({ x, y, z }) {
   const auLen = Math.sqrt(x * x + y * y + z * z);
   if (auLen < 1e-9) return { x: 0, y: 0, z: 0 };
   const sceneLen = auToSceneUnits(auLen);
   const k = sceneLen / auLen;
   return { x: x * k, y: y * k, z: z * k };
+}
+
+// Ecliptic-J2000 (right-handed, Z=ecliptic north) → Three.js (Y-up).
+// Verified by reviewer 1: this preserves handedness AND puts Pluto's
+// +17° inclination above the ecliptic plane (would be inverted with +y).
+export function eclipticToThreePosition({ x, y, z }) {
+  return [x, z, -y];
 }

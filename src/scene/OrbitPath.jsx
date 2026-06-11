@@ -1,29 +1,49 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import { orbitPathAU, auVecToSceneUnits } from '../lib/orbital.js';
+import {
+  orbitPathAU,
+  auVecToSceneUnits,
+  eclipticToThreePosition,
+} from '../lib/orbital.js';
 import { useStore } from '../state/useStore.js';
 
-// Render the elliptical orbit of a body as a line, using the body's actual
-// (Ω, i, ω) orientation. Sampled in AU then compressed into scene units so
-// the orbit line passes through the planet's sphere — no double-bookkeeping.
+// Render an elliptical orbit line in the body's actual (Ω, i, ω) plane.
+//
+// `epochMs` is intentionally NOT in the useMemo deps — orbit shape changes
+// on the century timescale, so rebuilding the BufferGeometry once per
+// SimClock tick (60/sec) would be pure waste. We instead bucket by
+// "centuries since J2000 × 100" so the line refreshes every 1 century.
+// At simulation speeds humans can perceive (≤8 days/sec), that's a
+// rebuild every ~5000 real years of sim time. Effectively static.
+//
+// The `trueInclination` toggle IS in the dep set — it changes the line's
+// orientation immediately, which is the headline visual feature.
+const MS_PER_CENTURY = 36525 * 86400000;
+
 export function OrbitPath({ body, samples = 256 }) {
-  const date = useStore((s) => s.date);
-  const showOrbits = useStore((s) => s.showOrbits);
+  const showOrbits      = useStore((s) => s.showOrbits);
+  const trueInclination = useStore((s) => s.trueInclination);
+  const orbitBucket     = useStore((s) =>
+    Math.floor(((s.epochMs - Date.UTC(2000, 0, 1, 12)) / MS_PER_CENTURY) * 100)
+  );
 
   const geometry = useMemo(() => {
-    const pts = orbitPathAU(body, date, samples);
+    // Use the bucket-converted epoch so the math sees a stable date
+    // within the bucket window.
+    const epochMs = Date.UTC(2000, 0, 1, 12) + (orbitBucket / 100) * MS_PER_CENTURY;
+    const pts = orbitPathAU(body, epochMs, { useInclination: trueInclination, samples });
     const arr = new Float32Array(pts.length * 3);
     for (let i = 0; i < pts.length; i++) {
       const sceneP = auVecToSceneUnits(pts[i]);
-      // Same ECL → scene axis mapping as Planet.jsx
-      arr[i * 3 + 0] = sceneP.x;
-      arr[i * 3 + 1] = sceneP.z;
-      arr[i * 3 + 2] = -sceneP.y;
+      const [x, y, z] = eclipticToThreePosition(sceneP);
+      arr[i * 3 + 0] = x;
+      arr[i * 3 + 1] = y;
+      arr[i * 3 + 2] = z;
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
     return g;
-  }, [body, date, samples]);
+  }, [body, trueInclination, orbitBucket, samples]);
 
   if (!showOrbits) return null;
 

@@ -149,3 +149,29 @@ input[type='date'] {
   font-size: 11px;
   color: rgba(200, 205, 220, 0.5);
 }
+
+/* ── vantage segmented selector — desktop vs mobile ──────────────────── */
+
+.vantage-seg-desktop { display: inline-flex; }
+.vantage-select-mobile {
+  display: none;
+  background: transparent; color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 4px 8px; font-size: 12px; font-family: var(--sans);
+}
+.vantage-select-mobile option { background: var(--panel); color: var(--text); }
+
+/* ── responsive collapse: phones (≤640px) ────────────────────────────── */
+
+@media (max-width: 640px) {
+  .vantage-seg-desktop { display: none; }
+  .vantage-select-mobile { display: inline-block; }
+  .hint { display: none; }
+
+  /* Top bar gets taller when controls wrap. Push InfoPanel below the
+     worst-case wrapped header (reviewer 4's B11). */
+  .info-panel { top: 140px; width: calc(100% - 28px); right: 14px; left: 14px; }
+
+  .top-bar { font-size: 11px; padding: 7px 10px; gap: 8px; }
+  .ctrl input[type='range'] { width: 60px; }
+}

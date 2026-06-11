@@ -1,8 +1,7 @@
+import { useEffect } from 'react';
 import { useStore } from '../state/useStore.js';
 import { BODIES } from '../data/bodies.js';
 
-// Slide-in data drawer keyed off useStore.selected. Renders the full
-// NSSDC-verified body data plus a one-line fact.
 function fmt(n) { return n.toLocaleString(); }
 
 function rotationText(rotHrs) {
@@ -24,12 +23,33 @@ export function InfoPanel() {
   const setSelected = useStore((s) => s.setSelected);
   const body = selected ? BODIES[selected] : null;
 
+  // ESC closes — reviewer 3's a11y floor.
+  useEffect(() => {
+    if (!body) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setSelected(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [body, setSelected]);
+
   return (
-    <aside className={`info-panel${body ? ' show' : ''}`}>
-      <button className="info-close" onClick={() => setSelected(null)}>✕</button>
+    <aside
+      className={`info-panel${body ? ' show' : ''}`}
+      role="dialog"
+      aria-labelledby="info-panel-title"
+      aria-hidden={!body}
+    >
+      <button
+        className="info-close"
+        onClick={() => setSelected(null)}
+        aria-label="Close info panel"
+      >
+        ✕
+      </button>
       {body && (
         <>
-          <h2>
+          <h2 id="info-panel-title">
             <span className="info-swatch" style={{ background: body.color }} />
             {selected}
           </h2>
@@ -40,6 +60,18 @@ export function InfoPanel() {
             <tbody>
               <tr><td>Diameter</td><td>{fmt(body.dia)} km</td></tr>
               <tr><td>vs Earth</td><td>{(body.dia / 12742).toFixed(2)}×</td></tr>
+              {body.mass_kg && (
+                <tr><td>Mass</td><td>{body.mass_kg.toExponential(2)} kg</td></tr>
+              )}
+              {body.mass_earth && (
+                <tr><td>vs Earth mass</td><td>{body.mass_earth.toFixed(3)}×</td></tr>
+              )}
+              {body.gravity_ms2 && (
+                <tr><td>Surface gravity</td><td>{body.gravity_ms2.toFixed(2)} m/s²</td></tr>
+              )}
+              {body.mean_temp_c !== undefined && (
+                <tr><td>Mean temp</td><td>{body.mean_temp_c}°C</td></tr>
+              )}
               <tr><td>Day length</td><td>{rotationText(body.rot)}</td></tr>
               <tr><td>Year</td><td>{yearText(body.period)}</td></tr>
               <tr><td>Eccentricity</td><td>{body.e.toFixed(4)}</td></tr>

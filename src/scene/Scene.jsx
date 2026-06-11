@@ -1,13 +1,14 @@
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
 import { Sun } from './Sun.jsx';
 import { Starfield } from './Starfield.jsx';
 import { Planet } from './Planet.jsx';
 import { OrbitPath } from './OrbitPath.jsx';
+import { SimClock } from './SimClock.jsx';
+import { VantageCamera } from './VantageCamera.jsx';
 import { BODIES, BODY_NAMES } from '../data/bodies.js';
 
-// Top-level R3F canvas. Renders Sun + starfield + every body + its orbit
-// line. Positions are driven by `useStore.date` via `bodyPositionAU`.
+// Top-level R3F canvas. The simulation clock + vantage camera live inside
+// the Canvas (they each consume useFrame); everything else is content.
 export function Scene() {
   return (
     <Canvas
@@ -25,12 +26,8 @@ export function Scene() {
       {BODY_NAMES.map((name) => (
         <OrbitPath key={`orbit-${name}`} body={BODIES[name]} />
       ))}
-      <OrbitControls
-        enableDamping
-        dampingFactor={0.08}
-        minDistance={1.2}
-        maxDistance={1600}
-      />
+      <SimClock />
+      <VantageCamera />
     </Canvas>
   );
 }
