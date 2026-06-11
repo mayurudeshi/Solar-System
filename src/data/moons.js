@@ -106,6 +106,12 @@ export const MOONS = {
     parent: 'Pluto',
     a_km: 19591, e: 0.0, inc: 0.001, period_d: 6.3872,
     dia: 1212, rot: 6.3872 * 24, color: '#8c7d70',
+    // NASA PIA19968 — New Horizons enhanced-color shot. Disc view, not
+    // a true equirectangular projection, so the front hemisphere (with
+    // the iconic red Mordor Macula at the pole) reads correctly while
+    // the back is a stretched mirror. Acceptable trade-off for the
+    // Pluto-Charon binary moment until a real equirectangular fit lands.
+    textureUrl: '/textures/moons/charon.jpg',
     fact: 'Half the diameter of Pluto. Together they form a true binary — they orbit a common center of mass that lies OUTSIDE Pluto. Tidally locked to each other; both always show the same face.',
   },
 };
