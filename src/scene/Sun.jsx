@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useStore } from '../state/useStore.js';
 
@@ -34,6 +35,105 @@ function makeGlowTexture(stops) {
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
+}
+
+// Animated wispy filaments at the limb — real solar prominences are
+// plasma loops following magnetic field lines, glowing red-orange at
+// the chromospheric Hα wavelength. We approximate them as a slightly
+// larger transparent sphere whose alpha is driven by a Fresnel term
+// (grazing-angle visibility only) times an animated noise field, then
+// additive-blended over the photosphere.
+const PROMINENCE_VERTEX = /* glsl */ `
+  varying vec3 vNormalView;
+  varying vec3 vPosView;
+  varying vec2 vUv;
+  void main() {
+    vNormalView = normalize(normalMatrix * normal);
+    vec4 pv = modelViewMatrix * vec4(position, 1.0);
+    vPosView = pv.xyz;
+    vUv = uv;
+    gl_Position = projectionMatrix * pv;
+  }
+`;
+
+const PROMINENCE_FRAGMENT = /* glsl */ `
+  varying vec3 vNormalView;
+  varying vec3 vPosView;
+  varying vec2 vUv;
+  uniform float uTime;
+
+  float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+  }
+  float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(hash(i + vec2(0.0, 0.0)), hash(i + vec2(1.0, 0.0)), u.x),
+      mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
+      u.y
+    );
+  }
+  float fbm(vec2 p) {
+    float v = 0.0;
+    float amp = 0.5;
+    for (int i = 0; i < 4; i++) {
+      v += amp * noise(p);
+      p *= 2.0;
+      amp *= 0.5;
+    }
+    return v;
+  }
+
+  void main() {
+    // View direction in view space (camera at origin, looking down -Z)
+    vec3 viewDir = normalize(-vPosView);
+    // Fresnel: ~1 at grazing angle, ~0 head-on
+    float fresnel = 1.0 - abs(dot(vNormalView, viewDir));
+    fresnel = pow(fresnel, 3.0);
+
+    // Two octaves of slowly-drifting fbm — filaments writhe over time.
+    // u scrolled slowly with time; v gets independent shimmer.
+    float n = fbm(vUv * vec2(28.0, 14.0) + vec2(uTime * 0.015, 0.0));
+    float n2 = fbm(vUv * vec2(60.0, 30.0) + vec2(0.0, uTime * 0.025));
+    float wisp = smoothstep(0.42, 0.85, n * 0.6 + n2 * 0.4);
+
+    float alpha = fresnel * wisp * 0.95;
+    // Warm chromospheric red-orange. Brighter in the densest filaments.
+    vec3 color = mix(vec3(1.0, 0.30, 0.10), vec3(1.0, 0.55, 0.20), wisp);
+    gl_FragColor = vec4(color, alpha);
+  }
+`;
+
+function SunProminences() {
+  const materialRef = useRef();
+  // Stable uniforms object — re-creating per frame would lose GPU state.
+  const uniforms = useMemo(() => ({ uTime: { value: 0 } }), []);
+
+  useFrame((_, dt) => {
+    if (materialRef.current) {
+      materialRef.current.uniforms.uTime.value += dt;
+    }
+  });
+
+  return (
+    <mesh>
+      {/* Slightly larger than the photosphere (3.4) so the prominences
+          ring it without z-fighting; the fresnel term clips out the
+          central area automatically. */}
+      <sphereGeometry args={[3.65, 80, 80]} />
+      <shaderMaterial
+        ref={materialRef}
+        uniforms={uniforms}
+        vertexShader={PROMINENCE_VERTEX}
+        fragmentShader={PROMINENCE_FRAGMENT}
+        transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </mesh>
+  );
 }
 
 function SunCorona() {
@@ -127,6 +227,7 @@ export function Sun() {
           color={hovered ? '#fff0e0' : '#ffffff'}
         />
       </mesh>
+      <SunProminences />
       <SunCorona />
       <pointLight
         position={[0, 0, 0]}
