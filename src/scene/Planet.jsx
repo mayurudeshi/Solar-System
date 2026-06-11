@@ -1,5 +1,5 @@
 import { useRef, useMemo, useState, useEffect } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
   bodyPositionAU,
@@ -40,19 +40,132 @@ function bodyRadius(body) {
   return body.dia > 40000 ? 2.4 : 0.9;
 }
 
+// Saturn rings — two-layer LOD system:
+//
+//   1. A smooth alpha-mapped disc with the real ring texture (shows the
+//      Cassini Division + the B/A ring bands). Dominant at distance.
+//   2. A field of ~4000 particles distributed across the ring, each
+//      orbiting at its own Keplerian angular velocity (ω ∝ r^-1.5 so
+//      inner particles outpace outer ones). Dominant up close.
+//
+// The two crossfade based on camera distance to Saturn — far view stays
+// the recognizable disc, close-up reveals what the disc really IS.
+const PARTICLE_COUNT = 4000;
+const FAR_THRESHOLD = 55;
+const NEAR_THRESHOLD = 18;
+
 function SaturnRings({ planetRadius, ringTexture }) {
+  const groupRef = useRef();
+  const ringMeshRef = useRef();
+  const pointsRef = useRef();
+  const { camera } = useThree();
+
+  const INNER = planetRadius * 1.25;
+  const OUTER = planetRadius * 2.30;
+
+  // Disc geometry — swap UVs so the horizontal-strip ring texture's
+  // radial profile maps to the geometry's radial direction.
+  const ringGeom = useMemo(() => {
+    const g = new THREE.RingGeometry(INNER, OUTER, 192, 1);
+    const uv = g.attributes.uv;
+    for (let i = 0; i < uv.count; i++) {
+      const u = uv.getX(i);
+      const v = uv.getY(i);
+      uv.setXY(i, v, u);
+    }
+    return g;
+  }, [INNER, OUTER]);
+
+  // Particle field. Radii biased toward middle (B-ring dense region).
+  // We keep `radii` and `angles` typed-arrays so per-frame Kepler
+  // advancement is O(N) plain-JS arithmetic with no allocations.
+  const particleState = useRef(null);
+  const particleGeom = useMemo(() => {
+    const positions = new Float32Array(PARTICLE_COUNT * 3);
+    const radii = new Float32Array(PARTICLE_COUNT);
+    const angles = new Float32Array(PARTICLE_COUNT);
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      // Pow 0.7 biases distribution toward the bright B-ring middle
+      const t = Math.pow(Math.random(), 0.7);
+      const r = INNER + (OUTER - INNER) * t;
+      const a = Math.random() * Math.PI * 2;
+      radii[i] = r;
+      angles[i] = a;
+      positions[i * 3]     = Math.cos(a) * r;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 0.02; // ring thickness
+      positions[i * 3 + 2] = Math.sin(a) * r;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    particleState.current = { radii, angles };
+    return g;
+  }, [INNER, OUTER]);
+
+  const tmpWorld = useRef(new THREE.Vector3());
+
+  useFrame(() => {
+    if (!groupRef.current) return;
+
+    // Advance particles by Kepler. ω ∝ r^-1.5; normalise so inner-edge
+    // particles complete one revolution per ~10 sim hours (Saturn's own
+    // 10.66 hr day for visual parity).
+    const points = pointsRef.current;
+    if (points && particleState.current) {
+      const spinEpoch = useStore.getState().spinEpochMs;
+      const tHrs = spinEpoch / 3600000;
+      const { radii, angles } = particleState.current;
+      const positions = points.geometry.attributes.position;
+      const arr = positions.array;
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const r = radii[i];
+        const omega = Math.pow(INNER / r, 1.5);
+        const a = angles[i] + tHrs * omega * 0.6;
+        arr[i * 3]     = Math.cos(a) * r;
+        arr[i * 3 + 2] = Math.sin(a) * r;
+      }
+      positions.needsUpdate = true;
+    }
+
+    // LOD: distance from camera to ring centre (= Saturn position).
+    groupRef.current.getWorldPosition(tmpWorld.current);
+    const dist = camera.position.distanceTo(tmpWorld.current);
+    const t = Math.max(
+      0, Math.min(1, (FAR_THRESHOLD - dist) / (FAR_THRESHOLD - NEAR_THRESHOLD))
+    );
+
+    // Disc fades from 0.9 → 0.4 as we approach; particles 0 → 0.85.
+    if (ringMeshRef.current?.material) {
+      ringMeshRef.current.material.opacity = 0.9 - 0.5 * t;
+    }
+    if (pointsRef.current?.material) {
+      pointsRef.current.material.opacity = 0.85 * t;
+    }
+  });
+
   return (
-    <mesh rotation={[Math.PI / 2, 0, 0]}>
-      <ringGeometry args={[planetRadius * 1.3, planetRadius * 2.2, 96]} />
-      <meshBasicMaterial
-        map={ringTexture}
-        color={ringTexture ? '#ffffff' : '#e3c78a'}
-        side={THREE.DoubleSide}
-        transparent
-        opacity={ringTexture ? 0.9 : 0.5}
-        alphaTest={ringTexture ? 0.02 : 0}
-      />
-    </mesh>
+    <group ref={groupRef} rotation={[Math.PI / 2, 0, 0]}>
+      <mesh ref={ringMeshRef} geometry={ringGeom}>
+        <meshBasicMaterial
+          map={ringTexture}
+          color={ringTexture ? '#ffffff' : '#e3c78a'}
+          side={THREE.DoubleSide}
+          transparent
+          opacity={0.9}
+          alphaTest={ringTexture ? 0.02 : 0}
+          depthWrite={false}
+        />
+      </mesh>
+      <points ref={pointsRef} geometry={particleGeom}>
+        <pointsMaterial
+          color="#f0e6c8"
+          size={0.06}
+          transparent
+          opacity={0}
+          sizeAttenuation
+          depthWrite={false}
+        />
+      </points>
+    </group>
   );
 }
 
