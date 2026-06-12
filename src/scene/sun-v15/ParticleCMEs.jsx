@@ -14,14 +14,15 @@ import { CME_PARTICLE_VERT, CME_PARTICLE_FRAG } from './shaders.js';
 // transform feedback would be faster but is webgl2-only and overkill
 // for the particle counts we need here (~2000 total active).
 
-const MAX_PARTICLES = 2000;
-const BURST_INTERVAL_S = 11.0;     // average seconds between CME emissions
-const PARTICLES_PER_BURST = 220;
-const PARTICLE_LIFETIME_S = 7.5;
+const MAX_PARTICLES = 2400;
+const TRACK_INTERVAL_S = 11.0;     // seconds between bursts on ONE track
+const NUM_TRACKS = 2;              // staggered tracks → constant activity
+const PARTICLES_PER_BURST = 180;
+const PARTICLE_LIFETIME_S = 8.0;
 const SURFACE_RADIUS = 3.4;        // photosphere radius — emit from here
-const SPEED_MIN = 0.55;
-const SPEED_MAX = 1.10;
-const SPREAD_DEG = 14.0;           // cone half-angle around radial
+const SPEED_MIN = 0.50;
+const SPEED_MAX = 1.20;
+const SPREAD_DEG = 16.0;           // cone half-angle around radial
 
 function randUnitVector() {
   // Uniform random point on unit sphere
@@ -53,7 +54,12 @@ function tiltVector(base, halfAngleRad) {
 export function ParticleCMEs() {
   const pointsRef = useRef();
   const dataRef = useRef(null);
-  const lastBurstRef = useRef(0);
+  // One last-burst timestamp per track so the tracks fire independently
+  // and stay staggered. Initial offsets spread tracks evenly across one
+  // interval so they don't both fire at t=0.
+  const lastBurstRef = useRef(
+    Array.from({ length: NUM_TRACKS }, (_, i) => -i * (TRACK_INTERVAL_S / NUM_TRACKS))
+  );
 
   // Pre-allocate all GPU buffers once. Each particle has position(3),
   // age(1), and size(1). Inactive particles are kept at the origin with
@@ -92,18 +98,24 @@ export function ParticleCMEs() {
     const data = dataRef.current;
     data.simSeconds += dtSec;
 
-    // Spawn next burst if it's time
-    if (data.simSeconds - lastBurstRef.current >= BURST_INTERVAL_S) {
-      lastBurstRef.current = data.simSeconds;
-      const origin = randUnitVector(); // surface point direction
+    // Fire any track whose interval has elapsed. Tracks share the spawn
+    // pool but pick their own origin point so eruptions happen at
+    // independent random surface locations.
+    let didSpawn = false;
+    for (let track = 0; track < NUM_TRACKS; track++) {
+      if (data.simSeconds - lastBurstRef.current[track] < TRACK_INTERVAL_S) continue;
+      lastBurstRef.current[track] = data.simSeconds;
+      const origin = randUnitVector();
+      const posArrLocal = geometry.attributes.position.array;
+      const ageArrLocal = geometry.attributes.aAge.array;
+      const sizeArr = geometry.attributes.aSize.array;
       for (let n = 0; n < PARTICLES_PER_BURST; n++) {
-        // Find slot
         const i = data.cursor;
         data.cursor = (data.cursor + 1) % MAX_PARTICLES;
-        // Position at surface
         const p = origin.clone().multiplyScalar(SURFACE_RADIUS);
-        positions(geometry).setXYZ(i, p.x, p.y, p.z);
-        // Velocity in a small cone around the radial outward direction
+        posArrLocal[i * 3]     = p.x;
+        posArrLocal[i * 3 + 1] = p.y;
+        posArrLocal[i * 3 + 2] = p.z;
         const dir = tiltVector(origin.clone(), (SPREAD_DEG * Math.PI) / 180);
         const speed = SPEED_MIN + Math.random() * (SPEED_MAX - SPEED_MIN);
         data.velocities[i * 3]     = dir.x * speed;
@@ -111,9 +123,12 @@ export function ParticleCMEs() {
         data.velocities[i * 3 + 2] = dir.z * speed;
         data.bornAt[i] = data.simSeconds;
         data.alive[i] = 1;
-        geometry.attributes.aAge.array[i] = 0;
-        geometry.attributes.aSize.array[i] = 12 + Math.random() * 12;
+        ageArrLocal[i] = 0;
+        sizeArr[i] = 14 + Math.random() * 14;
       }
+      didSpawn = true;
+    }
+    if (didSpawn) {
       geometry.attributes.position.needsUpdate = true;
       geometry.attributes.aAge.needsUpdate = true;
       geometry.attributes.aSize.needsUpdate = true;
@@ -158,14 +173,3 @@ export function ParticleCMEs() {
   );
 }
 
-// helper to write XYZ via setXYZ without depending on Three's BufferAttribute
-function positions(geometry) {
-  const attr = geometry.attributes.position;
-  return {
-    setXYZ(i, x, y, z) {
-      attr.array[i * 3] = x;
-      attr.array[i * 3 + 1] = y;
-      attr.array[i * 3 + 2] = z;
-    },
-  };
-}

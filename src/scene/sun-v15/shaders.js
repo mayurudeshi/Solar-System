@@ -116,14 +116,22 @@ export const PHOTOSPHERE_FRAG = /* glsl */ `
     float activity = fbm3(sampleP * 2.2 + vec3(uTime * 0.003, 0.0, uTime * 0.002), 3);
     activity = smoothstep(0.58, 0.78, activity) * uActivityLevel;
 
+    // Sunspots — DARK patches where a low-frequency noise field is at
+    // its low end. Real sun spots concentrate at mid-latitudes during
+    // solar maximum; we don't model that latitude dependence here, just
+    // sprinkle a handful across the sphere via threshold on noise.
+    float spot = fbm3(sampleP * 3.2 + vec3(uTime * 0.001, 13.7, uTime * 0.0008), 3);
+    float spotMask = 1.0 - smoothstep(0.20, 0.32, spot); // 0=no spot, 1=core
+
     // Latitude-based base colour (equator hotter than poles), then add
-    // the small-scale granulation as brightness variation, then add the
-    // active region highlight.
-    float t = abs(dir.y);  // 0 at equator → 1 at poles
-    vec3 base = mix(uEqColor, uPoleColor, t);
+    // the small-scale granulation, supergranulation glow, active-region
+    // peaks, then darken in sunspot zones.
+    float latT = abs(dir.y);  // 0 at equator → 1 at poles
+    vec3 base = mix(uEqColor, uPoleColor, latT);
     base *= 0.85 + 0.40 * small;          // granulation
-    base += 0.55 * large * uHotColor;     // supergranulation glow
-    base += 0.90 * activity * uHotColor;  // active region peaks
+    base += 0.35 * large * uHotColor;     // supergranulation glow
+    base += 0.65 * activity * uHotColor;  // active region peaks
+    base *= 1.0 - 0.75 * spotMask;        // sunspot darkening
 
     // Limb darkening — real photosphere is dimmer at the edge because
     // we're seeing through more atmosphere at grazing angles.
