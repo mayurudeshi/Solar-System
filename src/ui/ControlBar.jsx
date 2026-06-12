@@ -26,6 +26,16 @@ function formatSpeed(speed) {
   return `${speed.toFixed(3)}×`;
 }
 
+// Distance from camera to its current focus (vantage target). Units are
+// arbitrary scene units, but the relative number is what matters for
+// "how zoomed in am I". Format compactly so it fits the control bar.
+function formatDist(d) {
+  if (d >= 1000) return `${(d / 1000).toFixed(1)}k`;
+  if (d >= 100)  return `${Math.round(d)}`;
+  if (d >= 10)   return `${d.toFixed(1)}`;
+  return d.toFixed(2);
+}
+
 export function ControlBar() {
   const speed              = useStore((s) => s.speed);
   const paused             = useStore((s) => s.paused);
@@ -47,6 +57,8 @@ export function ControlBar() {
   const toggleNaturalLight = useStore((s) => s.toggleNaturalLight);
   const showMoons          = useStore((s) => s.showMoons);
   const toggleMoons        = useStore((s) => s.toggleMoons);
+  const cameraDist         = useStore((s) => s.cameraDist);
+  const vantage            = useStore((s) => s.vantage);
 
   const sliderPos = speedToSlider(speed);
 
@@ -111,6 +123,13 @@ export function ControlBar() {
         <input type="checkbox" checked={showMoons} onChange={toggleMoons} />
         {' '}moons
       </label>
+
+      <span
+        className="zoom-meter"
+        title={`Camera distance to ${vantage === 'free' ? 'last focus' : vantage} (scene units). Saturn ring particles dominate below ~10; disc disappears below ~10. Crossfade window 10–35.`}
+      >
+        zoom <strong>{formatDist(cameraDist)}</strong>
+      </span>
 
       <span className="hint">click a planet for data · scroll to zoom</span>
     </div>

@@ -29,6 +29,12 @@ export const useStore = create((set) => ({
   naturalLight: false,     // false = uniform illumination (clarity); true = physical inverse-square falloff
   showMoons: true,         // master switch; LOD still hides them when far from parent
 
+  // Camera distance to the OrbitControls target (vantage focus). Updated
+  // by VantageCamera at ~10Hz so the ControlBar meter doesn't trigger a
+  // 60Hz React re-render storm.
+  cameraDist: 0,
+  setCameraDist: (d) => set({ cameraDist: d }),
+
   // Sets BOTH epoch sources — user-visible date jump, resyncs spin to orbit.
   setEpochMs: (epochMs) => set({ epochMs, spinEpochMs: epochMs }),
 

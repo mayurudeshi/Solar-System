@@ -51,15 +51,16 @@ function bodyRadius(body) {
 // The two crossfade based on camera distance to Saturn — far view stays
 // the recognizable disc, close-up reveals what the disc really IS.
 const PARTICLE_COUNT = 4000;
-// Tightened from (55, 18) → (22, 8). Old window left a huge mid-distance
-// zone where BOTH layers rendered at intermediate opacity — disc showing
-// alpha-banded "rings" and particles showing as a wider sparse halo,
-// reading visually as TWO separate ring systems. New window:
-//   dist > 22  → pure disc (particles fully off)
-//   dist 8-22  → crossfade
-//   dist < 8   → pure particles
-const FAR_THRESHOLD = 22;
-const NEAR_THRESHOLD = 8;
+// Crossfade window:
+//   dist > 35  → pure disc (particles fully off)
+//   dist 10-35 → crossfade
+//   dist < 10  → pure particles, disc fully invisible
+// MJ flagged 2026-06-11 that the disc was still readable at "literally
+// touching Saturn" zoom — pulled FAR out (start fading sooner) and
+// made the disc opacity go to 0 (not 0.05) at NEAR so close-up is
+// 100% particle field.
+const FAR_THRESHOLD = 35;
+const NEAR_THRESHOLD = 10;
 
 function SaturnRings({ planetRadius, ringTexture }) {
   const groupRef = useRef();
@@ -147,7 +148,7 @@ function SaturnRings({ planetRadius, ringTexture }) {
     // Disc 0.9 → 0.05, particles 0 → 0.9. Also gate `visible` so the
     // particle points don't ghost-render with sizeAttenuation at distance.
     if (ringMeshRef.current?.material) {
-      ringMeshRef.current.material.opacity = 0.9 - 0.85 * t;
+      ringMeshRef.current.material.opacity = 0.9 * (1 - t);
     }
     if (pointsRef.current) {
       pointsRef.current.visible = t > 0.001;

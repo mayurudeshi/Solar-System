@@ -18,6 +18,8 @@ const TARGET = new THREE.Vector3();
 export function VantageCamera() {
   const controlsRef = useRef();
   const { camera } = useThree();
+  const distFrame = useRef(0);
+  const lastDist = useRef(0);
 
   // Snap on vantage change so the user gets an immediate response, then
   // useFrame keeps a smooth lerp (target drifts as the planet orbits).
@@ -51,6 +53,18 @@ export function VantageCamera() {
     }
     c.target.lerp(TARGET, 0.12);
     c.update();
+
+    // Push camera→target distance to store at ~10Hz, and only when it
+    // actually changed by more than a hair. ControlBar reads this for
+    // the zoom meter; we don't want a 60Hz re-render storm.
+    distFrame.current = (distFrame.current + 1) % 6;
+    if (distFrame.current === 0) {
+      const dist = camera.position.distanceTo(c.target);
+      if (Math.abs(dist - lastDist.current) > Math.max(0.05, dist * 0.003)) {
+        lastDist.current = dist;
+        useStore.getState().setCameraDist(dist);
+      }
+    }
   });
 
   return (

@@ -94,7 +94,18 @@ input[type='date'] {
 .seg-btn.on { background: var(--accent-bg); color: #cfe0ff; }
 .seg-btn:hover:not(.on) { background: var(--panel-hi); }
 
-.hint { margin-left: auto; color: var(--text-dim); }
+.zoom-meter {
+  margin-left: auto;
+  padding: 3px 8px;
+  border: 1px solid var(--panel-hi);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.zoom-meter strong { color: var(--text); font-weight: 600; margin-left: 4px; }
+.hint { color: var(--text-dim); }
 .warn { color: var(--warn); font-size: 11px; }
 
 /* ── info panel (slide-in drawer) ────────────────────────────────────── */
