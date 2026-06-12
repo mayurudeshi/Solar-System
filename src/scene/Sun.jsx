@@ -255,25 +255,16 @@ const PHOTOSPHERE_FRAGMENT = /* glsl */ `
 
     vec4 col = texture2D(uMap, sampleUv);
 
-    // Animated noise modulation — visibly breaks up the perceived
-    // latitude banding that emerges over time from differential rotation
-    // smearing a static texture. Two octaves at different scales (one
-    // big, one small) so the disruption has structure at multiple
-    // frequencies and looks like granulation/convection cells rather
-    // than a uniform haze.
-    //
-    // The noise UVs are independent of the per-latitude rotation
-    // shift — they drift uniformly across the whole sphere, so the
-    // noise detail stays continuous across latitudes even where the
-    // texture sample's u-shift varies. That's what breaks the banding.
-    vec2 noiseUvA = vec2(vUv.x * 7.0, vUv.y * 4.5)
-                  + vec2(uTimeDays * 0.18, uTimeDays * 0.04);
-    vec2 noiseUvB = vec2(vUv.x * 26.0, vUv.y * 14.0)
-                  + vec2(uTimeDays * 0.40, -uTimeDays * 0.10);
-    float overlay = 0.6 * fbmP(noiseUvA) + 0.4 * fbmP(noiseUvB);
-    // 0.70..1.30 — 30% amplitude. Strong enough to actually disrupt the
-    // banding instead of being a faint shimmer on top of it.
-    overlay = mix(0.70, 1.30, overlay);
+    // Subtle animated noise — light shimmer over the surface. Earlier
+    // attempt at 30% amplitude with two octaves was masking the rotation
+    // banding but reading as a smudgy "needs a screen wipe" effect.
+    // Reverted to 8% — accept the banding as a known limitation of the
+    // static-texture approach. Real fix is the v1.5 procedural Sun
+    // rewrite (see README backlog) — generate the whole photosphere
+    // from 3D noise, then no static content can ever smear into bands.
+    vec2 noiseUv = vec2(vUv.x * 8.0, vUv.y * 5.0)
+                 + vec2(uTimeDays * 0.10, uTimeDays * 0.03);
+    float overlay = mix(0.92, 1.08, fbmP(noiseUv));
 
     gl_FragColor = vec4(col.rgb * uTint * overlay, col.a);
   }

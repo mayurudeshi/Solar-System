@@ -106,14 +106,34 @@ Pluto's 17° tilt orient correctly relative to Neptune (and not just visibly
 
 ## Backlog (unscheduled — pick by impact)
 
-- **Particle-based CME wisps (v1.4 candidate).** Current sun CMEs are
-  surface shaders on stacked spheres — gives "localized ejection" reads
-  well but cannot achieve true wispy filaments extending outward.
-  Real fix: each CME burst spawns a particle cluster traveling
-  radially outward in 3D space with fading trails. Each particle's
-  own trajectory + alpha-over-time produces actual volumetric tendrils
-  (the visual signature of LASCO coronagraph footage). Estimated 2-3
-  hours; the current shader approach has hit its ceiling.
+- **v1.5 Sun overhaul — procedural photosphere + particle CMEs.**
+  The current Sun has hit the ceiling of what's possible with a static
+  H-alpha texture + surface shader. Two limitations the current
+  approach can't escape:
+
+  1. **Differential rotation smears static texture content into
+     latitude bands** ("wind effect" / rings that grow over long
+     viewing sessions — the same texture features at adjacent latitudes
+     drift apart longitudinally over time). Noise overlays can mask
+     this faintly but anything strong enough to fully hide the banding
+     reads as a smudgy dirt layer over the surface.
+
+  2. **CMEs can't render as true wispy filaments** extending outward
+     into space — surface shaders are bound to the sphere they paint
+     on; the current "stacked trail shells" approach gives a lift-off
+     read but cannot achieve the volumetric tendril visuals of real
+     LASCO coronagraph footage.
+
+  Real fix: generate the photosphere ENTIRELY from animated 3D noise
+  (curl noise / fbm / domain warping) — no static texture, no static
+  content to smear. Differential rotation becomes a velocity field
+  applied to the noise sampling. Granulation cells emerge naturally
+  from the noise. Active regions become brighter zones with their own
+  pseudo-random lifetime. CMEs become particle clusters spawned from
+  active regions, traveling radially outward with fading trails (true
+  volumetric tendrils, no longer constrained to a sphere). Estimated
+  3-5 hours; complete replacement of `Photosphere`, `SunProminences`,
+  `SunCMETrails` components.
 - **Pluto color completeness.** Current swap fixed the half-rendered
   sphere but lost the NASA enhanced-color palette. Real fix: custom
   shader that blends the NASA color mosaic across the imaged
