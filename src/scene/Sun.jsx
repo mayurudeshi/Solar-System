@@ -64,11 +64,12 @@ const PROMINENCE_FRAGMENT = /* glsl */ `
   varying vec2 vUv;
   uniform float uTime;
 
-  #define CME_PERIOD      9.0   // seconds between CMEs on a single track
+  #define CME_PERIOD     12.0   // seconds between CMEs on a single track
   #define CME_PEAK_T      1.6   // ramp-up duration to peak brightness
   #define CME_FADE_T      6.0   // fade duration after peak
-  #define CME_FALLOFF     5.0   // larger = tighter blob; smaller so a burst
-                                // always overlaps SOME limb on screen
+  #define CME_FALLOFF    11.0   // larger = tighter blob; 11 gives each burst
+                                // ~15% of the sphere — visible as a specific
+                                // eruption, not a wraparound glow
 
   float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
@@ -143,20 +144,20 @@ const PROMINENCE_FRAGMENT = /* glsl */ `
     float wispAlpha = fresnelWisp * wisp * 0.95;
     vec3  wispCol   = mix(vec3(1.0, 0.30, 0.10), vec3(1.0, 0.55, 0.20), wisp);
 
-    // Three CME tracks staggered across the period so at any moment ~2 of
-    // them are active. Combined with the wider CME_FALLOFF, this means
-    // at least one burst overlaps the visible limb on most frames.
+    // Two CME tracks staggered by half-period. Each track fires for ~7.6s
+    // out of every 12s, so usually 1 active, sometimes 2 briefly overlap,
+    // sometimes brief quiet between. Reads as discrete eruptions instead
+    // of a continuous halo (which 3 tracks + wider falloff was producing).
     float cycleA = floor(uTime / CME_PERIOD) * CME_PERIOD;
-    float cycleB = floor((uTime + CME_PERIOD / 3.0) / CME_PERIOD) * CME_PERIOD
-                   - CME_PERIOD / 3.0;
-    float cycleC = floor((uTime + 2.0 * CME_PERIOD / 3.0) / CME_PERIOD) * CME_PERIOD
-                   - 2.0 * CME_PERIOD / 3.0;
-    float cme = cmePulse(vUv, cycleA) + cmePulse(vUv, cycleB) + cmePulse(vUv, cycleC);
-    cme = min(cme, 1.6);
+    float cycleB = floor((uTime + CME_PERIOD * 0.5) / CME_PERIOD) * CME_PERIOD
+                   - CME_PERIOD * 0.5;
+    float cme = cmePulse(vUv, cycleA) + cmePulse(vUv, cycleB);
+    cme = min(cme, 1.2);
 
-    // ×4.0 brightness so a bloomed CME visibly outshines the H-alpha
-    // photosphere underneath, which is already glowing hot.
-    float cmeAlpha = fresnelCme * cme * 4.0;
+    // ×2.6 — bright enough to pop above the H-alpha photosphere without
+    // saturating the whole limb. Earlier ×4.0 + soft Fresnel + wide
+    // falloff combined to paint a uniform white ring around the Sun.
+    float cmeAlpha = fresnelCme * cme * 2.6;
     vec3  cmeCol   = vec3(1.00, 0.96, 0.78);  // near-white, hotter than wisps
 
     // Pre-multiply for additive blending — each layer contributes
