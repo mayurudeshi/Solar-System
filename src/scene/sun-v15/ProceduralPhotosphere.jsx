@@ -29,8 +29,8 @@ export function ProceduralPhotosphere({ hovered, eventHandlers, radius = 3.4 }) 
       uSpinSeconds: { value: 0 },
       uEqColor:  { value: new THREE.Color(0xff5a1f) },
       uPoleColor:{ value: new THREE.Color(0xc83a14) },
-      uHotColor: { value: new THREE.Color(0xffe09a) },
-      uActivityLevel: { value: 0.75 },
+      uHotColor: { value: new THREE.Color(0xfff0b0) },
+      uActivityLevel: { value: 1.0 },
       uTint:     { value: new THREE.Color(1, 1, 1) },
     }),
     []
