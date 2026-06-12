@@ -10,12 +10,11 @@
 // latitudes sample neighbouring points in noise-space.
 
 export const PHOTOSPHERE_VERT = /* glsl */ `
-  varying vec3 vWorldPos;
-  varying vec3 vWorldNormal;
+  varying vec3 vObjectPos;     // for latitude + noise sampling (axis-aligned)
+  varying vec3 vWorldNormal;   // for limb darkening (view-direction dependent)
   varying vec3 vViewPos;
   void main() {
-    vec4 wp = modelMatrix * vec4(position, 1.0);
-    vWorldPos = wp.xyz;
+    vObjectPos = position;
     vWorldNormal = normalize(mat3(modelMatrix) * normal);
     vec4 vp = modelViewMatrix * vec4(position, 1.0);
     vViewPos = vp.xyz;
@@ -39,7 +38,7 @@ export const PHOTOSPHERE_FRAG = /* glsl */ `
   uniform float uActivityLevel; // 0..1 — modulates active region brightness
   uniform vec3  uTint;          // ×tint at end (for hover/click feedback)
 
-  varying vec3 vWorldPos;
+  varying vec3 vObjectPos;
   varying vec3 vWorldNormal;
   varying vec3 vViewPos;
 
@@ -87,10 +86,10 @@ export const PHOTOSPHERE_FRAG = /* glsl */ `
   }
 
   void main() {
-    // Direction from sphere center to fragment in OBJECT space — independent
-    // of mesh world transform, so the noise stays pinned to the Sun even as
-    // its parent group rotates.
-    vec3 dir = normalize(vWorldPos);  // OK because sphere is at origin
+    // Direction in OBJECT space — independent of any parent group rotations
+    // (axial tilt etc), so the Sun's rotation axis is local Y and the noise
+    // stays pinned to the sphere as it tilts.
+    vec3 dir = normalize(vObjectPos);
 
     // Latitude (lat=0 at equator) and differential rotation angle.
     float lat = asin(clamp(dir.y, -1.0, 1.0));
@@ -104,14 +103,18 @@ export const PHOTOSPHERE_FRAG = /* glsl */ `
     vec3 sampleP = rotateY(dir, -rotAngle);
 
     // Two scales of fbm: small for granulation, large for supergranulation.
-    float small = fbm3(sampleP * 18.0 + vec3(uTime * 0.05), 4);
-    float large = fbm3(sampleP *  4.0 + vec3(uTime * 0.02), 4);
+    // Time drift is REAL-time (uTime), independent of sim speed so the
+    // photosphere always shimmers at a natural pace regardless of how
+    // fast the user is winding the clock. Slow drift values picked so
+    // individual granulation cells live ~10+ real-seconds visually.
+    float small = fbm3(sampleP * 18.0 + vec3(uTime * 0.012, uTime * 0.008, 0.0), 4);
+    float large = fbm3(sampleP *  5.0 + vec3(0.0, uTime * 0.006, uTime * 0.004), 4);
 
     // Active regions: a slow-evolving low-frequency field that picks out
     // a few bright spots (where the field is high). Multiplied by
     // uActivityLevel so the user can tune solar maximum vs minimum.
-    float activity = fbm3(sampleP * 2.5 + vec3(uTime * 0.008), 3);
-    activity = smoothstep(0.62, 0.78, activity) * uActivityLevel;
+    float activity = fbm3(sampleP * 2.2 + vec3(uTime * 0.003, 0.0, uTime * 0.002), 3);
+    activity = smoothstep(0.58, 0.78, activity) * uActivityLevel;
 
     // Latitude-based base colour (equator hotter than poles), then add
     // the small-scale granulation as brightness variation, then add the
