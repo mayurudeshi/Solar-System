@@ -76,8 +76,12 @@ export function ParticleCMEs() {
     g.setAttribute('aAge', new THREE.BufferAttribute(ages, 1));
     g.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
 
+    // uPointScale: pixel-size multiplier in the vertex shader. At ~80
+    // each particle renders 10–25 px at a typical Sun-vantage zoom.
+    // Was 800 — particles overran into a single saturated white cloud
+    // that swallowed the Sun. Tuned conservatively to start.
     const u = {
-      uPointScale: { value: 800 },
+      uPointScale: { value: 80 },
     };
 
     return { geometry: g, uniforms: u };
@@ -134,7 +138,7 @@ export function ParticleCMEs() {
         data.bornAt[i] = data.simSeconds;
         data.alive[i] = 1;
         ageArrLocal[i] = 0;
-        sizeArr[i] = 14 + Math.random() * 14;
+        sizeArr[i] = 5 + Math.random() * 7;
       }
       didSpawn = true;
     }
