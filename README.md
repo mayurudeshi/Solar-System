@@ -134,6 +134,17 @@ Pluto's 17° tilt orient correctly relative to Neptune (and not just visibly
   volumetric tendrils, no longer constrained to a sphere). Estimated
   3-5 hours; complete replacement of `Photosphere`, `SunProminences`,
   `SunCMETrails` components.
+- **Uranus rotation visibility.** Uranus' real texture has so little
+  longitudinal variation that even at its fast 17.24-hour spin, MJ can
+  barely tell it's rotating (only the limb gives it away). Add a
+  procedural overlay to the Uranus material that introduces 1-2 faint
+  bright storm-spots and/or subtle latitude bands rotating with the
+  planet. JWST imagery from 2023 actually shows Uranus has faint band
+  structure and occasional bright atmospheric features, so this is
+  honest-ish rather than invention. Approach: shader-level UV-shifted
+  fbm overlay on the existing texture, modulated by spinEpochMs at the
+  same rate as the planet spin. ~30-60 min. Same fix likely applies to
+  Mercury (featureless at our scale) — check before shipping.
 - **Pluto color completeness.** Current swap fixed the half-rendered
   sphere but lost the NASA enhanced-color palette. Real fix: custom
   shader that blends the NASA color mosaic across the imaged
