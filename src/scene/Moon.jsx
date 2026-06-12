@@ -5,7 +5,6 @@ import {
   bodyPositionAU,
   auVecToSceneUnits,
   eclipticToThreePosition,
-  spinAtEpoch,
   DEG,
 } from '../lib/orbital.js';
 import { useStore } from '../state/useStore.js';
@@ -96,7 +95,10 @@ function moonRelativePosition(moon, epochMs) {
   // Tilt orbital plane about x-axis by inclination
   const y = z * Math.sin(inc);
   const z2 = z * Math.cos(inc);
-  return { x, y, z: z2 };
+  // Return the orbital angle too so the caller can phase-lock the moon's
+  // rotation to its orbit (real tidal lock — same face toward parent at
+  // ALL epochs, not just matching the rotation period to the orbit).
+  return { x, y, z: z2, angle };
 }
 
 export function Moon({ name, moon, parent }) {
@@ -125,7 +127,7 @@ export function Moon({ name, moon, parent }) {
 
   useFrame(() => {
     if (!ref.current) return;
-    const { epochMs, spinEpochMs, trueInclination, showMoons, showRotation, slowRotation } = useStore.getState();
+    const { epochMs, spinEpochMs, trueInclination, showMoons, showRotation } = useStore.getState();
     if (!showMoons) {
       if (visible) setVisible(false);
       return;
@@ -147,14 +149,18 @@ export function Moon({ name, moon, parent }) {
 
     ref.current.position.set(x, y, z);
 
-    // Spin. All major moons in our set are tidally locked — rot equals
-    // orbital period × 24, so the rotation we apply here is visually
-    // synchronous with the orbital revolution. Same face presented to
-    // the parent — Luna's familiar tidal-lock signature, but for every
-    // moon, because that's how tides work for everyone close enough.
+    // Tidal lock — phase, not just rate. Earlier version used spinAtEpoch
+    // which matched the rotation PERIOD to the orbital period but left
+    // the rotation PHASE arbitrary, so the near-side could end up pointing
+    // anywhere (MJ spotted Luna's dark side facing Earth). Real tidal lock
+    // requires the rotation angle to track the orbital angle every frame.
+    // Three.js SphereGeometry UV: texture longitude 0.5 (the "near side"
+    // for Luna et al) maps to +X. To face the parent (at origin in this
+    // local frame), the moon's +X axis must point in direction (angle + π),
+    // which means rotation.y = -angle - π.
     if (spinMeshRef.current) {
       spinMeshRef.current.rotation.y = showRotation
-        ? spinAtEpoch(moon.rot, spinEpochMs, slowRotation)
+        ? -rel.angle - Math.PI
         : 0;
     }
 
