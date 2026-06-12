@@ -189,6 +189,43 @@ function SaturnRings({ planetRadius, ringTexture }) {
 }
 
 
+// Earth cloud layer. Transparent sphere slightly outside Earth, lit by
+// the Sun's pointLight (so it's naturally dark on the night side), with
+// the cloud texture serving as both colorMap and alphaMap. Clouds rotate
+// slightly FASTER than the surface — real upper-atmosphere winds drift
+// ~10% faster than Earth's rotation, so we set the cloud rotation period
+// to 23.0h vs Earth's 23.93h. Slow, but you'll see it over a sim-minute.
+function EarthClouds({ planetRadius }) {
+  const cloudsRef = useRef();
+  const tex = useAsyncTexture('/textures/2k_earth_clouds.jpg');
+
+  useFrame(() => {
+    if (!cloudsRef.current) return;
+    const { spinEpochMs, showRotation, slowRotation } = useStore.getState();
+    cloudsRef.current.rotation.y = showRotation
+      ? spinAtEpoch(23.0, spinEpochMs, slowRotation)
+      : 0;
+  });
+
+  if (!tex) return null;
+
+  return (
+    <mesh ref={cloudsRef}>
+      <sphereGeometry args={[planetRadius * 1.018, 48, 48]} />
+      <meshStandardMaterial
+        map={tex}
+        alphaMap={tex}
+        transparent
+        opacity={0.85}
+        roughness={1.0}
+        metalness={0.0}
+        depthWrite={false}
+      />
+    </mesh>
+  );
+}
+
+
 // Async-load a real texture; resolve to null on failure so the procedural
 // fallback persists.
 function useAsyncTexture(url) {
@@ -285,6 +322,9 @@ export function Planet({ name, body }) {
         </mesh>
         {name === 'Saturn' && (
           <SaturnRings planetRadius={radius} ringTexture={ringTexture} />
+        )}
+        {name === 'Earth' && (
+          <EarthClouds planetRadius={radius} />
         )}
       </group>
       <mesh

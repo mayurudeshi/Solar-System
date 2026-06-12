@@ -64,6 +64,11 @@ const PROMINENCE_FRAGMENT = /* glsl */ `
   varying vec2 vUv;
   uniform float uTime;
 
+  #define CME_PERIOD     14.0   // seconds between CMEs on a single track
+  #define CME_PEAK_T      2.0   // ramp-up duration to peak brightness
+  #define CME_FADE_T      7.0   // fade duration after peak
+  #define CME_FALLOFF    13.0   // larger = tighter blob
+
   float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
   }
@@ -88,6 +93,35 @@ const PROMINENCE_FRAGMENT = /* glsl */ `
     return v;
   }
 
+  // CME contribution: a pseudo-random burst point ramps up over CME_PEAK_T
+  // and fades over CME_FADE_T. Position is deterministic from the cycle
+  // start time so the same cycle always paints the same spot — keeps GPU
+  // and JS in sync without uniforms.
+  float cmePulse(vec2 uv, float cycleStart) {
+    float t = uTime - cycleStart;
+    if (t < 0.0 || t > CME_PEAK_T + CME_FADE_T) return 0.0;
+
+    // Pseudo-random burst location, latitude biased toward equator
+    // (most real CMEs originate from active regions in low/mid latitudes).
+    vec2 cmePos = vec2(
+      hash(vec2(cycleStart, 1.7)),
+      0.30 + 0.40 * hash(vec2(cycleStart, 5.3))
+    );
+
+    // Pulse: sharp attack, slower decay
+    float pulse = t < CME_PEAK_T
+      ? t / CME_PEAK_T
+      : 1.0 - (t - CME_PEAK_T) / CME_FADE_T;
+    pulse = pow(max(0.0, pulse), 1.4);
+
+    // Spatial falloff. Wrap U-distance so a burst near the seam doesn't
+    // hard-cut on one side. V doesn't wrap (poles).
+    vec2 d = uv - cmePos;
+    d.x = d.x - floor(d.x + 0.5);
+    float dist = length(d);
+    return pulse * exp(-dist * CME_FALLOFF);
+  }
+
   void main() {
     // View direction in view space (camera at origin, looking down -Z)
     vec3 viewDir = normalize(-vPosView);
@@ -95,16 +129,31 @@ const PROMINENCE_FRAGMENT = /* glsl */ `
     float fresnel = 1.0 - abs(dot(vNormalView, viewDir));
     fresnel = pow(fresnel, 3.0);
 
-    // Two octaves of slowly-drifting fbm — filaments writhe over time.
-    // u scrolled slowly with time; v gets independent shimmer.
-    float n = fbm(vUv * vec2(28.0, 14.0) + vec2(uTime * 0.015, 0.0));
-    float n2 = fbm(vUv * vec2(60.0, 30.0) + vec2(0.0, uTime * 0.025));
+    // Two octaves of drifting fbm — filaments writhe and crawl around the
+    // limb over a few seconds. Speed bumped from 0.015/0.025 → 0.18/0.32
+    // so the motion reads at any zoom level.
+    float n  = fbm(vUv * vec2(28.0, 14.0) + vec2(uTime * 0.18,  0.0));
+    float n2 = fbm(vUv * vec2(60.0, 30.0) + vec2(0.0, uTime * 0.32));
     float wisp = smoothstep(0.42, 0.85, n * 0.6 + n2 * 0.4);
 
-    float alpha = fresnel * wisp * 0.95;
-    // Warm chromospheric red-orange. Brighter in the densest filaments.
-    vec3 color = mix(vec3(1.0, 0.30, 0.10), vec3(1.0, 0.55, 0.20), wisp);
-    gl_FragColor = vec4(color, alpha);
+    float wispAlpha = fresnel * wisp * 0.95;
+    vec3  wispCol   = mix(vec3(1.0, 0.30, 0.10), vec3(1.0, 0.55, 0.20), wisp);
+
+    // Two CME tracks staggered by half a period so the Sun usually has
+    // SOMETHING going off — one fading as another peaks.
+    float cycleA = floor(uTime / CME_PERIOD) * CME_PERIOD;
+    float cycleB = floor((uTime + CME_PERIOD * 0.5) / CME_PERIOD) * CME_PERIOD
+                   - CME_PERIOD * 0.5;
+    float cme = cmePulse(vUv, cycleA) + cmePulse(vUv, cycleB);
+    cme = min(cme, 1.5);
+
+    float cmeAlpha = fresnel * cme * 1.8;
+    vec3  cmeCol   = vec3(1.00, 0.92, 0.55); // hot yellow-white, hotter than wisps
+
+    // Pre-multiply for additive blending — each layer contributes
+    // color * alpha to the framebuffer independently.
+    vec3 outColor = wispCol * wispAlpha + cmeCol * cmeAlpha;
+    gl_FragColor  = vec4(outColor, 1.0);
   }
 `;
 
@@ -217,10 +266,11 @@ function SunProminences() {
 
   return (
     <mesh>
-      {/* Slightly larger than the photosphere (3.4) so the prominences
-          ring it without z-fighting; the fresnel term clips out the
-          central area automatically. */}
-      <sphereGeometry args={[3.65, 80, 80]} />
+      {/* Larger than the photosphere (3.4) so the prominences AND the
+          CME bursts have room to read as "outside" the surface. Fresnel
+          term clips the central area; the limb is where everything fires.
+          Bumped 3.65 → 3.9 to give CMEs a bit more radial breathing room. */}
+      <sphereGeometry args={[3.9, 80, 80]} />
       <shaderMaterial
         ref={materialRef}
         uniforms={uniforms}

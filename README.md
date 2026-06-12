@@ -110,34 +110,19 @@ Pluto's 17° tilt orient correctly relative to Neptune (and not just visibly
   sphere but lost the NASA enhanced-color palette. Real fix: custom
   shader that blends the NASA color mosaic across the imaged
   hemisphere with the grayscale full-coverage base everywhere else.
-- **Saturn ring quality + zoom transition.** Current ring is one
-  generic alpha-mapped disc. Improve: (1) higher-resolution real ring
-  texture showing the Cassini Division and the major bands at low
-  zoom; (2) at high zoom — when the user is close enough to study —
-  transition from the flat disc into a particle field of fragmented
-  ice/rock/dust chunks orbiting at differential rates. Real Saturn
-  rings are 99% ice particles ranging from grains to bus-sized
-  boulders; the disc IS an artifact of distance.
 - **Charon equirectangular.** NASA disc projection makes the back
   hemisphere distort. Real fix: Lambert-azimuthal-to-equirectangular
   reprojection of the disc, OR hand-stitched composite with Hubble
   pre-encounter data for the unimaged side.
-- **Deimos texture.** Currently color-only; 12 km diameter so pixel-
-  scale anyway, but a real Mars Express / MRO image would be honest.
-- **Earth cloud layer.** Separate transparent sphere just outside
-  Earth's surface with rotating cloud alpha map. Would also enable
-  the night-side light overlay on the dark hemisphere.
-- **Wider speed slider.** Currently 80px wide. Range covers 5 decades
-  (0.001x to 100x) on a log scale — every pixel is ~6% speed change,
-  which makes fine control near 1x physically hard. Bump to ~200px on
-  desktop, keep current width on mobile.
-- **Animated Sun prominences + CMEs.** Existing prominences shader is
-  static. Feed spinEpochMs into the fbm noise term so loops/arches
-  breathe and crawl around the limb. Then add a periodic pulse term
-  that spawns 1-2 brighter outward arcs every N sim-seconds, peaks
-  over ~2s, fades over ~5s. Real CME data exists (NASA CDAW LASCO
-  catalog) but procedural will look alive 100% of the time vs only
-  during cataloged events, and skips the fetch/replay pipeline.
+
+### Decided
+
+- **Deimos texture** → keep color-only. 12 km diameter renders at
+  pixel-scale anyway; no clean CC equirectangular exists and a fake
+  one would be dishonest. Decided 2026-06-11.
+- **Saturn ring quality + zoom transition** → SHIPPED 2026-06-11.
+  Disc-to-particle LOD crossfade in [10, 35] scene units, ~4000
+  Keplerian-advanced ice particles. See `SaturnRings` in `Planet.jsx`.
 
 ## Dev
 
