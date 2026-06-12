@@ -204,31 +204,71 @@ const PHOTOSPHERE_FRAGMENT = /* glsl */ `
   #define EQ_PERIOD_DAYS 24.47
   #define POLE_PERIOD_DAYS 34.4
 
+  // Animated noise overlay — masks the static-texture banding artifact
+  // that emerges over long viewing sessions when differential rotation
+  // smears the same H-alpha features differently at adjacent latitudes.
+  // Without this, the texture's natural latitude content (granulation
+  // patches, intensity zones) gets stretched into horizontal stripes
+  // because adjacent latitudes show different snapshots of the same
+  // pattern. The noise breaks up the perceived banding by injecting
+  // SHARED variation across all latitudes at the same time.
+  float hashP(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+  }
+  float noiseP(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(hashP(i + vec2(0.0, 0.0)), hashP(i + vec2(1.0, 0.0)), u.x),
+      mix(hashP(i + vec2(0.0, 1.0)), hashP(i + vec2(1.0, 1.0)), u.x),
+      u.y
+    );
+  }
+  float fbmP(vec2 p) {
+    float v = 0.0;
+    float amp = 0.5;
+    for (int i = 0; i < 4; i++) {
+      v += amp * noiseP(p);
+      p *= 2.0;
+      amp *= 0.5;
+    }
+    return v;
+  }
+
   void main() {
     // UV.v: 0 at south pole, 0.5 at equator, 1 at north pole.
     float lat = (vUv.y - 0.5) * PI;
     float sinLat2 = sin(lat) * sin(lat);
 
-    // Period at this latitude (linear interp in sin²(lat))
+    // Period at this latitude (linear interp in sin²(lat)).
     float periodDays = mix(EQ_PERIOD_DAYS, POLE_PERIOD_DAYS, sinLat2);
 
-    // Fractional rotations completed since reference. U is east-west;
-    // negative offset makes features drift to +U (eastward) over time.
-    //
-    // WRAP uTimeDays modulo this latitude's period BEFORE dividing — the
-    // raw division grows past float32 precision after a few sim-minutes
-    // at 1×, and adjacent latitudes start sampling from wildly different
-    // texture regions, painting the photosphere as solid horizontal
-    // latitude bands instead of a coherent surface (the "rings effect"
-    // MJ flagged 2026-06-12). The mod is INVISIBLE in the output because
-    // fract(x) is periodic with period 1 — the wraparound at uTimeDays =
-    // periodDays produces the same sampled UV as just before.
-    float wrappedTime = mod(uTimeDays, periodDays);
-    float uOffset = -wrappedTime / periodDays;
+    // Negative offset makes features drift to +U (eastward) over time.
+    // Note: we deliberately do NOT mod(uTimeDays, periodDays) here —
+    // that would introduce visible discontinuities in offset at every
+    // latitude where uTimeDays/periodDays crosses an integer (one set
+    // of bands), to fix a precision problem we don't actually hit at
+    // reasonable viewing times (highp gives ~7 decimal digits, and at
+    // 1× the user would need 10000+ sim-days for precision to matter).
+    float uOffset = -uTimeDays / periodDays;
     vec2 sampleUv = vec2(fract(vUv.x + uOffset), vUv.y);
 
     vec4 col = texture2D(uMap, sampleUv);
-    gl_FragColor = vec4(col.rgb * uTint, col.a);
+
+    // Animated noise modulation, scaled to break up the perceived latitude
+    // banding. The noise UV is INDEPENDENT of the differential rotation —
+    // it drifts uniformly across the whole sphere, so its detail is
+    // continuous across latitudes (unlike the texture sample whose u is
+    // shifted by varying amounts per latitude). 12% amplitude is enough
+    // to interrupt the visual banding without overwhelming the underlying
+    // photosphere features.
+    vec2 noiseUv = vec2(vUv.x * 9.0, vUv.y * 5.0)
+                 + vec2(uTimeDays * 0.04, uTimeDays * 0.012);
+    float overlay = fbmP(noiseUv);
+    overlay = mix(0.88, 1.12, overlay);
+
+    gl_FragColor = vec4(col.rgb * uTint * overlay, col.a);
   }
 `;
 
