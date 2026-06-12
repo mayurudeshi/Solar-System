@@ -160,7 +160,11 @@ export const CME_PARTICLE_VERT = /* glsl */ `
     vAgeNorm = aAge;
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * mv;
-    gl_PointSize = aSize * uPointScale / (-mv.z + 0.001);
+    // Grow over lifetime — plasma expanding outward. Each particle
+    // ~1x at birth, ~3.5x at death. Combined with alpha fade in the
+    // fragment shader, the cloud disperses as it travels outward.
+    float sizeMult = 1.0 + 2.5 * pow(aAge, 1.4);
+    gl_PointSize = aSize * sizeMult * uPointScale / (-mv.z + 0.001);
   }
 `;
 

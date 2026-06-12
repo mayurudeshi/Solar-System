@@ -23,6 +23,7 @@ const SURFACE_RADIUS = 3.4;        // photosphere radius — emit from here
 const SPEED_MIN = 0.50;
 const SPEED_MAX = 1.20;
 const SPREAD_DEG = 16.0;           // cone half-angle around radial
+const PATCH_DEG = 8.0;             // surface patch the particles spawn FROM
 
 function randUnitVector() {
   // Uniform random point on unit sphere
@@ -109,18 +110,27 @@ export function ParticleCMEs() {
       const posArrLocal = geometry.attributes.position.array;
       const ageArrLocal = geometry.attributes.aAge.array;
       const sizeArr = geometry.attributes.aSize.array;
+      const patchRad = (PATCH_DEG * Math.PI) / 180;
+      const spreadRad = (SPREAD_DEG * Math.PI) / 180;
       for (let n = 0; n < PARTICLES_PER_BURST; n++) {
         const i = data.cursor;
         data.cursor = (data.cursor + 1) % MAX_PARTICLES;
-        const p = origin.clone().multiplyScalar(SURFACE_RADIUS);
+        // Each particle spawns from a slightly different point on a small
+        // surface patch around origin — looks like a cluster eruption
+        // instead of a point source.
+        const spawnDir = tiltVector(origin.clone(), patchRad);
+        const p = spawnDir.clone().multiplyScalar(SURFACE_RADIUS);
         posArrLocal[i * 3]     = p.x;
         posArrLocal[i * 3 + 1] = p.y;
         posArrLocal[i * 3 + 2] = p.z;
-        const dir = tiltVector(origin.clone(), (SPREAD_DEG * Math.PI) / 180);
+        // Velocity outward from THAT particle's surface point (not the
+        // patch centre), so the eruption fans out radially as a whole
+        // and particles don't all converge or diverge oddly.
+        const velDir = tiltVector(spawnDir.clone(), spreadRad);
         const speed = SPEED_MIN + Math.random() * (SPEED_MAX - SPEED_MIN);
-        data.velocities[i * 3]     = dir.x * speed;
-        data.velocities[i * 3 + 1] = dir.y * speed;
-        data.velocities[i * 3 + 2] = dir.z * speed;
+        data.velocities[i * 3]     = velDir.x * speed;
+        data.velocities[i * 3 + 1] = velDir.y * speed;
+        data.velocities[i * 3 + 2] = velDir.z * speed;
         data.bornAt[i] = data.simSeconds;
         data.alive[i] = 1;
         ageArrLocal[i] = 0;
