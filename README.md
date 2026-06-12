@@ -106,7 +106,18 @@ Pluto's 17° tilt orient correctly relative to Neptune (and not just visibly
 
 ## Backlog (unscheduled — pick by impact)
 
-- **v1.5 Sun overhaul — procedural photosphere + particle CMEs.**
+- **v1.5 Sun overhaul — IN-PROGRESS, parked behind feature flag.**
+  Scaffolding shipped 2026-06-12 (see `src/scene/sun-v15/`). Live behind
+  `useStore.sunV15` — UI toggle removed per MJ to prevent accidental
+  flipping; flip via devtools console
+  `useStore.getState().toggleSunV15()`. Current state has all the
+  structural pieces (procedural photosphere, particle CMEs, wisp limb,
+  corona) but the visual tuning is wrong: disc reads blotchy,
+  particles read cartoonish, rotation still produces band-like
+  artifacts even with 3D-noise sampling. Resume in a screen-share
+  iteration where MJ + Claude can co-iterate on tunings in real time
+  instead of guessing values blind.
+
   The current Sun has hit the ceiling of what's possible with a static
   H-alpha texture + surface shader. Two limitations the current
   approach can't escape:
