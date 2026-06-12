@@ -154,10 +154,12 @@ const PROMINENCE_FRAGMENT = /* glsl */ `
     float cme = cmePulse(vUv, cycleA) + cmePulse(vUv, cycleB);
     cme = min(cme, 1.2);
 
-    // ×2.6 — bright enough to pop above the H-alpha photosphere without
-    // saturating the whole limb. Earlier ×4.0 + soft Fresnel + wide
-    // falloff combined to paint a uniform white ring around the Sun.
-    float cmeAlpha = fresnelCme * cme * 2.6;
+    // ×1.6 on the INNER sphere — the burst foot. The brighter outer
+    // shells (SunCMETrails) carry most of the visual now, so the inner
+    // contribution can stay subtle: a small bright base where the
+    // eruption foots onto the chromosphere, while the trails do the
+    // outward extension.
+    float cmeAlpha = fresnelCme * cme * 1.6;
     vec3  cmeCol   = vec3(1.00, 0.96, 0.78);  // near-white, hotter than wisps
 
     // Pre-multiply for additive blending — each layer contributes
@@ -260,6 +262,121 @@ function Photosphere({ texture, hovered, eventHandlers }) {
         fragmentShader={PHOTOSPHERE_FRAGMENT}
       />
     </mesh>
+  );
+}
+
+// CME trail shells — concentric transparent spheres OUTSIDE the prominence
+// sphere that render ONLY the CME pulse term. Each shell's Fresnel ring
+// paints the burst at its own radius, so a CME that fires at UV (u,v)
+// shows bright at the limb of every shell at the same azimuth. From the
+// camera's view, these stack as a radial bright streak extending outward
+// from the photosphere — the actual "lift-off" arc you see in LASCO
+// coronagraph footage. Without these, the burst only blooms INWARD
+// because the fresnel falloff bleeds into the prominence-sphere body
+// (which is what MJ spotted 2026-06-12).
+const CME_TRAIL_FRAGMENT = /* glsl */ `
+  varying vec3 vNormalView;
+  varying vec3 vPosView;
+  varying vec2 vUv;
+  uniform float uTime;
+  uniform float uBrightness;
+
+  #define CME_PERIOD     12.0
+  #define CME_PEAK_T      1.6
+  #define CME_FADE_T      6.0
+  #define CME_FALLOFF    11.0
+
+  float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+  }
+
+  float cmePulse(vec2 uv, float cycleStart) {
+    float t = uTime - cycleStart;
+    if (t < 0.0 || t > CME_PEAK_T + CME_FADE_T) return 0.0;
+    vec2 cmePos = vec2(
+      hash(vec2(cycleStart, 1.7)),
+      0.30 + 0.40 * hash(vec2(cycleStart, 5.3))
+    );
+    float pulse = t < CME_PEAK_T
+      ? t / CME_PEAK_T
+      : 1.0 - (t - CME_PEAK_T) / CME_FADE_T;
+    pulse = pow(max(0.0, pulse), 1.4);
+    vec2 d = uv - cmePos;
+    d.x = d.x - floor(d.x + 0.5);
+    float dist = length(d);
+    return pulse * exp(-dist * CME_FALLOFF);
+  }
+
+  void main() {
+    vec3 viewDir = normalize(-vPosView);
+    float grazing = 1.0 - abs(dot(vNormalView, viewDir));
+    // Slightly tighter fresnel (^1.7) than the inner sphere so the trail
+    // hugs the limb-azimuth instead of smearing across the visible face.
+    float fresnel = pow(grazing, 1.7);
+
+    float cycleA = floor(uTime / CME_PERIOD) * CME_PERIOD;
+    float cycleB = floor((uTime + CME_PERIOD * 0.5) / CME_PERIOD) * CME_PERIOD
+                   - CME_PERIOD * 0.5;
+    float cme = cmePulse(vUv, cycleA) + cmePulse(vUv, cycleB);
+    cme = min(cme, 1.2);
+
+    float alpha = fresnel * cme * uBrightness;
+    // Slightly cooler near-white — by the time the plasma has reached
+    // these outer radii it's optically thinner and a touch more bluish.
+    vec3 col = vec3(0.98, 0.94, 0.82);
+    gl_FragColor = vec4(col * alpha, 1.0);
+  }
+`;
+
+function CMETrailShell({ radius, brightness }) {
+  const materialRef = useRef();
+  // Each shell holds its own uTime, but they're all initialised at 0 and
+  // advance by the same dt every frame, so they stay phase-locked with
+  // each other AND with the inner prominence sphere — guarantees every
+  // shell paints the SAME CME at the SAME moment, which is what makes the
+  // stacked-limbs read as a single radial streak.
+  const uniforms = useMemo(
+    () => ({ uTime: { value: 0 }, uBrightness: { value: brightness } }),
+    [] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  useEffect(() => {
+    uniforms.uBrightness.value = brightness;
+  }, [brightness, uniforms]);
+
+  useFrame((_, dt) => {
+    if (materialRef.current) {
+      materialRef.current.uniforms.uTime.value += dt;
+    }
+  });
+
+  return (
+    <mesh>
+      <sphereGeometry args={[radius, 80, 80]} />
+      <shaderMaterial
+        ref={materialRef}
+        uniforms={uniforms}
+        vertexShader={PROMINENCE_VERTEX}
+        fragmentShader={CME_TRAIL_FRAGMENT}
+        transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </mesh>
+  );
+}
+
+function SunCMETrails() {
+  // Three shells at increasing radii, decreasing brightness — the burst
+  // appears strongest right above the photosphere and fades into space.
+  // Real CMEs follow a similar density profile: dense at the foot, thin
+  // at the leading edge as plasma expands.
+  return (
+    <>
+      <CMETrailShell radius={4.4} brightness={1.8} />
+      <CMETrailShell radius={5.2} brightness={1.1} />
+      <CMETrailShell radius={6.4} brightness={0.55} />
+    </>
   );
 }
 
@@ -390,6 +507,7 @@ export function Sun() {
         )}
       </group>
       <SunProminences />
+      <SunCMETrails />
       <SunCorona />
       <pointLight
         position={[0, 0, 0]}
