@@ -123,14 +123,15 @@ const PROMINENCE_FRAGMENT = /* glsl */ `
     float dist = length(d);
     float envelope = exp(-dist * CME_FALLOFF);
 
-    // Strand modulation — see CME_TRAIL_FRAGMENT for rationale.
-    // Anisotropic streaks for clearly filamentary visual.
-    vec2 strandUv = (uv - cmePos) * vec2(65.0, 20.0)
-                  + vec2(uTime * 0.8, hash(vec2(cycleStart, 7.3)) * 17.0);
-    float strand = fbm(strandUv);
-    strand = smoothstep(0.32, 0.68, strand);
+    // Polar-coordinate strand modulation — see CME_TRAIL_FRAGMENT.
+    // Same approach: noise in (theta, r) → radial filaments from burst.
+    float theta = atan(d.y, d.x);
+    vec2 polarUv = vec2(theta * 4.5, dist * 20.0)
+                 + vec2(uTime * 0.4, hash(vec2(cycleStart, 7.3)) * 17.0);
+    float strand = fbm(polarUv);
+    strand = pow(smoothstep(0.30, 0.62, strand), 0.7);
 
-    return pulse * envelope * (0.10 + 1.30 * strand);
+    return pulse * envelope * (0.05 + 1.55 * strand);
   }
 
   void main() {
@@ -389,19 +390,19 @@ const CME_TRAIL_FRAGMENT = /* glsl */ `
     float dist = length(d);
     float envelope = exp(-dist * CME_FALLOFF);
 
-    // STRAND MODULATION — break the smooth gaussian blob into filamentary
-    // wisps that read as plasma loops following magnetic field lines.
-    // ANISOTROPIC noise scale (high U, low V) stretches the wavelength
-    // along the longitudinal direction so the noise appears as streaks
-    // crawling around the limb, not blobby clumps. Lower base + higher
-    // strand multiplier makes the streaks high-contrast — when strand
-    // is low you see nothing, when high you see a bright wisp.
-    vec2 strandUv = (uv - cmePos) * vec2(70.0, 22.0)
-                  + vec2(uTime * 0.8, hash(vec2(cycleStart, 7.3)) * 17.0);
-    float strand = fbm(strandUv);
-    strand = smoothstep(0.32, 0.68, strand);
+    // STRAND MODULATION via POLAR noise — sample noise in (theta, r)
+    // around the burst center so it paints as RADIAL FILAMENTS shooting
+    // outward from the eruption point, not grid-aligned noise patches.
+    // theta * 4.5 → ~9 angular streaks per full revolution. r * 20 →
+    // each streak extends across roughly half the burst envelope before
+    // breaking. uTime drift makes the streaks crawl around the burst.
+    float theta = atan(d.y, d.x);
+    vec2 polarUv = vec2(theta * 4.5, dist * 20.0)
+                 + vec2(uTime * 0.4, hash(vec2(cycleStart, 7.3)) * 17.0);
+    float strand = fbm(polarUv);
+    strand = pow(smoothstep(0.30, 0.62, strand), 0.7);
 
-    return pulse * envelope * (0.08 + 1.40 * strand);
+    return pulse * envelope * (0.05 + 1.60 * strand);
   }
 
   void main() {
