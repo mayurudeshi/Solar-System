@@ -121,7 +121,18 @@ const PROMINENCE_FRAGMENT = /* glsl */ `
     vec2 d = uv - cmePos;
     d.x = d.x - floor(d.x + 0.5);
     float dist = length(d);
-    return pulse * exp(-dist * CME_FALLOFF);
+    float envelope = exp(-dist * CME_FALLOFF);
+
+    // Strand modulation — same idea as the trail shells (see CME_TRAIL_FRAGMENT
+    // for the rationale). Each cycle's burst gets a unique noise offset
+    // so it has distinct filament patterns; the time drift makes the
+    // strands shimmer/crawl as plasma moves along the field lines.
+    vec2 strandUv = (uv - cmePos) * 36.0
+                  + vec2(uTime * 0.6, hash(vec2(cycleStart, 7.3)) * 17.0);
+    float strand = fbm(strandUv);
+    strand = smoothstep(0.42, 0.78, strand);
+
+    return pulse * envelope * (0.30 + 0.85 * strand);
   }
 
   void main() {
@@ -293,6 +304,26 @@ const CME_TRAIL_FRAGMENT = /* glsl */ `
   float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
   }
+  float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(hash(i + vec2(0.0, 0.0)), hash(i + vec2(1.0, 0.0)), u.x),
+      mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
+      u.y
+    );
+  }
+  float fbm(vec2 p) {
+    float v = 0.0;
+    float amp = 0.5;
+    for (int i = 0; i < 4; i++) {
+      v += amp * noise(p);
+      p *= 2.0;
+      amp *= 0.5;
+    }
+    return v;
+  }
 
   float cmePulse(vec2 uv, float cycleStart) {
     float t = uTime - cycleStart;
@@ -308,7 +339,20 @@ const CME_TRAIL_FRAGMENT = /* glsl */ `
     vec2 d = uv - cmePos;
     d.x = d.x - floor(d.x + 0.5);
     float dist = length(d);
-    return pulse * exp(-dist * CME_FALLOFF);
+    float envelope = exp(-dist * CME_FALLOFF);
+
+    // STRAND MODULATION — break the smooth gaussian blob into filamentary
+    // wisps that read as plasma loops following magnetic field lines.
+    // Without this, each burst looks like a glowing bump; with it, you
+    // see 2-3 distinct strands inside each burst, like real coronal
+    // streamers. The hash offset varies per cycle so every burst has
+    // its own unique strand pattern instead of recycled noise.
+    vec2 strandUv = (uv - cmePos) * 40.0
+                  + vec2(uTime * 0.6, hash(vec2(cycleStart, 7.3)) * 17.0);
+    float strand = fbm(strandUv);
+    strand = smoothstep(0.42, 0.78, strand);
+
+    return pulse * envelope * (0.25 + 0.95 * strand);
   }
 
   void main() {
