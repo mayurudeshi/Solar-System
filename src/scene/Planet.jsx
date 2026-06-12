@@ -191,13 +191,32 @@ function SaturnRings({ planetRadius, ringTexture }) {
 
 // Earth cloud layer. Transparent sphere slightly outside Earth, lit by
 // the Sun's pointLight (so it's naturally dark on the night side), with
-// the cloud texture serving as both colorMap and alphaMap. Clouds rotate
-// slightly FASTER than the surface — real upper-atmosphere winds drift
-// ~10% faster than Earth's rotation, so we set the cloud rotation period
-// to 23.0h vs Earth's 23.93h. Slow, but you'll see it over a sim-minute.
+// the cloud texture driving alpha — bright pixels = clouds, dark pixels
+// = clear sky transparent over the surface map below. Clouds rotate
+// slightly FASTER than the surface — upper-atmosphere winds drift faster
+// than Earth's rotation, so we set the cloud rotation period to 23.0h
+// vs Earth's 23.93h. Slow, but you'll see it over a sim-minute.
+//
+// Why a dedicated texture loader instead of useAsyncTexture: the shared
+// loader sets colorSpace=SRGB, which is correct for color maps but WRONG
+// for alphaMaps — sRGB gamma compresses the dark cloud edges into
+// near-zero alpha before the material reads them. We need NoColorSpace
+// (read pixel values literally) so a grayscale 0.5 means alpha 0.5.
 function EarthClouds({ planetRadius }) {
   const cloudsRef = useRef();
-  const tex = useAsyncTexture('/textures/2k_earth_clouds.jpg');
+  const [tex, setTex] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loader = new THREE.TextureLoader();
+    loader.load('/textures/2k_earth_clouds.jpg', (loaded) => {
+      if (cancelled) { loaded.dispose(); return; }
+      loaded.colorSpace = THREE.NoColorSpace;
+      loaded.anisotropy = 4;
+      setTex(loaded);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   useFrame(() => {
     if (!cloudsRef.current) return;
@@ -211,12 +230,12 @@ function EarthClouds({ planetRadius }) {
 
   return (
     <mesh ref={cloudsRef}>
-      <sphereGeometry args={[planetRadius * 1.018, 48, 48]} />
+      <sphereGeometry args={[planetRadius * 1.03, 48, 48]} />
       <meshStandardMaterial
-        map={tex}
+        color="#ffffff"
         alphaMap={tex}
         transparent
-        opacity={0.85}
+        opacity={1.0}
         roughness={1.0}
         metalness={0.0}
         depthWrite={false}
