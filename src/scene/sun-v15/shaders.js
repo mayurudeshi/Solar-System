@@ -102,21 +102,21 @@ export const PHOTOSPHERE_FRAG = /* glsl */ `
     // sample neighbouring points in noise-space (no banding artifact).
     vec3 sampleP = rotateY(dir, -rotAngle);
 
-    // GRANULATION — high-contrast cellular pattern. Mix raw fbm with
-    // a tighter smoothstep so the disc shows visible variation across
-    // its whole face, not just at the limb.
-    float smallRaw = fbm3(sampleP * 14.0 + vec3(uTime * 0.018, uTime * 0.012, 0.0), 5);
-    float small    = smoothstep(0.32, 0.72, smallRaw);
+    // GRANULATION — small-scale brightness variation. Soft contrast so
+    // we get fine texture without harsh banding.
+    float smallRaw = fbm3(sampleP * 16.0 + vec3(uTime * 0.015, uTime * 0.010, 0.0), 4);
+    float small    = smoothstep(0.38, 0.62, smallRaw);
 
-    // SUPERGRANULATION — large-scale warm/cool plasma flow, high
-    // contrast so big bright/dim regions are visible across the disc.
-    float largeRaw = fbm3(sampleP * 4.0 + vec3(0.0, uTime * 0.008, uTime * 0.005), 4);
-    float large    = smoothstep(0.30, 0.78, largeRaw);
+    // SUPERGRANULATION — MEDIUM scale (was too large at scale=4, which
+    // produced visible horizontal bands across the disc). Bumped to 7
+    // so individual cells are smaller and don't read as banding.
+    float largeRaw = fbm3(sampleP * 7.0 + vec3(0.0, uTime * 0.007, uTime * 0.004), 4);
+    float large    = smoothstep(0.40, 0.68, largeRaw);
 
-    // Active regions — MORE of them, brighter. Real sun has dozens of
-    // visible active region complexes during solar maximum.
+    // Active regions — moderate threshold, moderate intensity. Was too
+    // bright + too common; bands of activity reading as horizontal stripes.
     float activity = fbm3(sampleP * 2.4 + vec3(uTime * 0.003, 7.0, uTime * 0.002), 3);
-    activity = smoothstep(0.48, 0.72, activity) * uActivityLevel;
+    activity = smoothstep(0.58, 0.78, activity) * uActivityLevel;
 
     // Sunspots — TIGHT, SMALL, RARE. Higher-frequency noise so spots
     // are small relative to the disc, and a narrow threshold band so
@@ -132,10 +132,10 @@ export const PHOTOSPHERE_FRAG = /* glsl */ `
     // + bright active regions, then apply gentle sunspot darkening.
     float latT = abs(dir.y);  // 0 at equator → 1 at poles
     vec3 base = mix(uEqColor, uPoleColor, latT);
-    base *= 0.75 + 0.55 * small;          // GRANULATION — wider contrast band
-    base += 0.55 * large * uHotColor;     // supergranulation glow — brighter
-    base += 0.95 * activity * uHotColor;  // active region peaks — much brighter
-    base *= 1.0 - 0.55 * spotMask;        // sunspot darkening — gentler max
+    base *= 0.78 + 0.35 * small;          // GRANULATION — softer contrast
+    base += 0.30 * large * uHotColor;     // supergranulation glow — moderate
+    base += 0.55 * activity * uHotColor;  // active region peaks — moderate
+    base *= 1.0 - 0.45 * spotMask;        // sunspot darkening — gentle
 
     // Limb darkening — real photosphere is dimmer at the edge because
     // we're seeing through more atmosphere at grazing angles.

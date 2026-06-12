@@ -6,7 +6,6 @@ import { ProceduralPhotosphere } from './ProceduralPhotosphere.jsx';
 import { ParticleCMEs } from './ParticleCMEs.jsx';
 import { WispLimb } from './WispLimb.jsx';
 import { SunCorona } from './SunCorona.jsx';
-import { CoronalStreamers } from './CoronalStreamers.jsx';
 
 // v1.5 Sun composition. Mirrors the v1.4 Sun's external surface (selection
 // click, hover, lighting modes) so Scene.jsx can swap implementations via
@@ -44,7 +43,6 @@ export function SunV15() {
         <WispLimb />
       </group>
       <ParticleCMEs />
-      <CoronalStreamers />
       <SunCorona />
       <pointLight
         position={[0, 0, 0]}
