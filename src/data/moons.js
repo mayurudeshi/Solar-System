@@ -92,6 +92,25 @@ export const MOONS = {
     fact: 'Tiny moon with cryovolcanic geysers spraying water-ice plumes into space from a subsurface ocean. Cassini flew through the plumes and detected organic compounds.',
   },
 
+  // ── Uranus — Ariel + Titania ─────────────────────────────────────────
+  // Voyager 2 (1986) is the ONLY close-up imagery of any Uranian moon.
+  // Textures are disc views, not equirectangular — back hemisphere
+  // distorts at high zoom (same trade-off as Charon).
+  Ariel: {
+    parent: 'Uranus',
+    a_km: 191020, e: 0.0012, inc: 0.260, period_d: 2.520,
+    dia: 1157.8, rot: 2.520 * 24, color: '#c0bcb8',
+    textureUrl: '/textures/moons/ariel.jpg',
+    fact: 'Brightest of Uranus\'s moons. Geologically young surface with deep canyons (chasmata) cutting across — tectonic and possibly cryovolcanic activity in its past. Roughly half water ice, half rock. Voyager 2 saw it once in 1986; we have no closer imagery.',
+  },
+  Titania: {
+    parent: 'Uranus',
+    a_km: 436300, e: 0.0011, inc: 0.340, period_d: 8.706,
+    dia: 1577.8, rot: 8.706 * 24, color: '#9b8870',
+    textureUrl: '/textures/moons/titania.jpg',
+    fact: 'Largest moon of Uranus, 8th largest moon in the solar system. Surface dominated by massive rift valleys (chasmata) stretching across its disk. Half water ice, half rock. Like all Uranus moons, only imaged by Voyager 2 (1986).',
+  },
+
   // ── Neptune — Triton ─────────────────────────────────────────────────
   Triton: {
     parent: 'Neptune',
