@@ -102,39 +102,40 @@ export const PHOTOSPHERE_FRAG = /* glsl */ `
     // sample neighbouring points in noise-space (no banding artifact).
     vec3 sampleP = rotateY(dir, -rotAngle);
 
-    // GRANULATION — rectified fbm produces ridge-like cell boundaries
-    // instead of smooth blobs. abs(fbm - 0.5) * 2 creates valleys at
-    // fbm=0.5 (cell centres) with peaks where the noise transitions —
-    // reads as the bright edges between solar granulation cells.
-    float smallRaw = fbm3(sampleP * 16.0 + vec3(uTime * 0.012, uTime * 0.008, 0.0), 4);
-    float cellEdge = 1.0 - abs(smallRaw - 0.5) * 2.0;   // 0=cell edge, 1=cell centre
-    float small    = smallRaw * 0.6 + cellEdge * 0.4;
+    // GRANULATION — high-contrast cellular pattern. Mix raw fbm with
+    // a tighter smoothstep so the disc shows visible variation across
+    // its whole face, not just at the limb.
+    float smallRaw = fbm3(sampleP * 14.0 + vec3(uTime * 0.018, uTime * 0.012, 0.0), 5);
+    float small    = smoothstep(0.32, 0.72, smallRaw);
 
-    // SUPERGRANULATION — smooth large-scale fbm for warm/cool flow.
-    float large = fbm3(sampleP * 5.0 + vec3(0.0, uTime * 0.006, uTime * 0.004), 4);
+    // SUPERGRANULATION — large-scale warm/cool plasma flow, high
+    // contrast so big bright/dim regions are visible across the disc.
+    float largeRaw = fbm3(sampleP * 4.0 + vec3(0.0, uTime * 0.008, uTime * 0.005), 4);
+    float large    = smoothstep(0.30, 0.78, largeRaw);
 
-    // Active regions: a slow-evolving low-frequency field that picks out
-    // a few bright spots (where the field is high). Multiplied by
-    // uActivityLevel so the user can tune solar maximum vs minimum.
-    float activity = fbm3(sampleP * 2.2 + vec3(uTime * 0.003, 0.0, uTime * 0.002), 3);
-    activity = smoothstep(0.58, 0.78, activity) * uActivityLevel;
+    // Active regions — MORE of them, brighter. Real sun has dozens of
+    // visible active region complexes during solar maximum.
+    float activity = fbm3(sampleP * 2.4 + vec3(uTime * 0.003, 7.0, uTime * 0.002), 3);
+    activity = smoothstep(0.48, 0.72, activity) * uActivityLevel;
 
-    // Sunspots — DARK patches where a low-frequency noise field is at
-    // its low end. Real sun spots concentrate at mid-latitudes during
-    // solar maximum; we don't model that latitude dependence here, just
-    // sprinkle a handful across the sphere via threshold on noise.
-    float spot = fbm3(sampleP * 3.2 + vec3(uTime * 0.001, 13.7, uTime * 0.0008), 3);
-    float spotMask = 1.0 - smoothstep(0.20, 0.32, spot); // 0=no spot, 1=core
+    // Sunspots — TIGHT, SMALL, RARE. Higher-frequency noise so spots
+    // are small relative to the disc, and a narrow threshold band so
+    // only a handful appear. Previous version painted huge dark blotches
+    // covering ~30% of the disc — looked like rotten patches, not
+    // sunspots (MJ flagged: "those black blotches… looks worse than v1.4").
+    float spot = fbm3(sampleP * 8.5 + vec3(uTime * 0.001, 13.7, uTime * 0.0008), 3);
+    float spotMask = 1.0 - smoothstep(0.18, 0.24, spot);  // narrow band
+    spotMask *= spotMask;                                  // square for tighter cores
 
-    // Latitude-based base colour (equator hotter than poles), then add
-    // the small-scale granulation, supergranulation glow, active-region
-    // peaks, then darken in sunspot zones.
+    // Latitude-based base colour (equator hotter than poles), build up
+    // the disc with strong granulation contrast + bright supergranulation
+    // + bright active regions, then apply gentle sunspot darkening.
     float latT = abs(dir.y);  // 0 at equator → 1 at poles
     vec3 base = mix(uEqColor, uPoleColor, latT);
-    base *= 0.85 + 0.40 * small;          // granulation
-    base += 0.35 * large * uHotColor;     // supergranulation glow
-    base += 0.65 * activity * uHotColor;  // active region peaks
-    base *= 1.0 - 0.75 * spotMask;        // sunspot darkening
+    base *= 0.75 + 0.55 * small;          // GRANULATION — wider contrast band
+    base += 0.55 * large * uHotColor;     // supergranulation glow — brighter
+    base += 0.95 * activity * uHotColor;  // active region peaks — much brighter
+    base *= 1.0 - 0.55 * spotMask;        // sunspot darkening — gentler max
 
     // Limb darkening — real photosphere is dimmer at the edge because
     // we're seeing through more atmosphere at grazing angles.

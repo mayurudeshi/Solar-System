@@ -59,13 +59,14 @@ const STREAMER_FRAGMENT = /* glsl */ `
     float angularLow  = fbm(vec2(theta * 3.5, r * 1.5 + uTime * 0.03));
     float angularHigh = fbm(vec2(theta * 9.0, r * 1.0 + uTime * 0.05));
     float streamer = angularLow * 0.65 + angularHigh * 0.35;
-    streamer = smoothstep(0.42, 0.78, streamer);
+    streamer = smoothstep(0.32, 0.70, streamer);
 
     // A few BRIGHT streamers picked from a coarser noise — these are
-    // the helmet streamers that anchor at active regions.
-    float bright = smoothstep(0.66, 0.82,
+    // the helmet streamers that anchor at active regions. Bumped higher
+    // so they really pop like the SOHO reference.
+    float bright = smoothstep(0.58, 0.78,
                               fbm(vec2(theta * 1.8, uTime * 0.012)));
-    streamer = max(streamer, bright * 1.2);
+    streamer = max(streamer, bright * 1.5);
 
     // ── RADIAL PROFILE ──────────────────────────────────────────────────
     // r ≈ 0.18 is the inner ring (just outside the photosphere disc when
@@ -82,7 +83,7 @@ const STREAMER_FRAGMENT = /* glsl */ `
     vec3 coolCol = vec3(1.00, 0.35, 0.10);
     vec3 col = mix(hotCol, coolCol, smoothstep(0.20, 0.70, r));
 
-    float alpha = radial * streamer * 0.85;
+    float alpha = radial * streamer * 1.30;
     gl_FragColor = vec4(col * alpha, 1.0);
   }
 `;
