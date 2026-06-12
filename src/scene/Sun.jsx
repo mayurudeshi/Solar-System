@@ -123,16 +123,14 @@ const PROMINENCE_FRAGMENT = /* glsl */ `
     float dist = length(d);
     float envelope = exp(-dist * CME_FALLOFF);
 
-    // Strand modulation — same idea as the trail shells (see CME_TRAIL_FRAGMENT
-    // for the rationale). Each cycle's burst gets a unique noise offset
-    // so it has distinct filament patterns; the time drift makes the
-    // strands shimmer/crawl as plasma moves along the field lines.
-    vec2 strandUv = (uv - cmePos) * 36.0
-                  + vec2(uTime * 0.6, hash(vec2(cycleStart, 7.3)) * 17.0);
+    // Strand modulation — see CME_TRAIL_FRAGMENT for rationale.
+    // Anisotropic streaks for clearly filamentary visual.
+    vec2 strandUv = (uv - cmePos) * vec2(65.0, 20.0)
+                  + vec2(uTime * 0.8, hash(vec2(cycleStart, 7.3)) * 17.0);
     float strand = fbm(strandUv);
-    strand = smoothstep(0.42, 0.78, strand);
+    strand = smoothstep(0.32, 0.68, strand);
 
-    return pulse * envelope * (0.30 + 0.85 * strand);
+    return pulse * envelope * (0.10 + 1.30 * strand);
   }
 
   void main() {
@@ -216,7 +214,17 @@ const PHOTOSPHERE_FRAGMENT = /* glsl */ `
 
     // Fractional rotations completed since reference. U is east-west;
     // negative offset makes features drift to +U (eastward) over time.
-    float uOffset = -uTimeDays / periodDays;
+    //
+    // WRAP uTimeDays modulo this latitude's period BEFORE dividing — the
+    // raw division grows past float32 precision after a few sim-minutes
+    // at 1×, and adjacent latitudes start sampling from wildly different
+    // texture regions, painting the photosphere as solid horizontal
+    // latitude bands instead of a coherent surface (the "rings effect"
+    // MJ flagged 2026-06-12). The mod is INVISIBLE in the output because
+    // fract(x) is periodic with period 1 — the wraparound at uTimeDays =
+    // periodDays produces the same sampled UV as just before.
+    float wrappedTime = mod(uTimeDays, periodDays);
+    float uOffset = -wrappedTime / periodDays;
     vec2 sampleUv = vec2(fract(vUv.x + uOffset), vUv.y);
 
     vec4 col = texture2D(uMap, sampleUv);
@@ -343,16 +351,17 @@ const CME_TRAIL_FRAGMENT = /* glsl */ `
 
     // STRAND MODULATION — break the smooth gaussian blob into filamentary
     // wisps that read as plasma loops following magnetic field lines.
-    // Without this, each burst looks like a glowing bump; with it, you
-    // see 2-3 distinct strands inside each burst, like real coronal
-    // streamers. The hash offset varies per cycle so every burst has
-    // its own unique strand pattern instead of recycled noise.
-    vec2 strandUv = (uv - cmePos) * 40.0
-                  + vec2(uTime * 0.6, hash(vec2(cycleStart, 7.3)) * 17.0);
+    // ANISOTROPIC noise scale (high U, low V) stretches the wavelength
+    // along the longitudinal direction so the noise appears as streaks
+    // crawling around the limb, not blobby clumps. Lower base + higher
+    // strand multiplier makes the streaks high-contrast — when strand
+    // is low you see nothing, when high you see a bright wisp.
+    vec2 strandUv = (uv - cmePos) * vec2(70.0, 22.0)
+                  + vec2(uTime * 0.8, hash(vec2(cycleStart, 7.3)) * 17.0);
     float strand = fbm(strandUv);
-    strand = smoothstep(0.42, 0.78, strand);
+    strand = smoothstep(0.32, 0.68, strand);
 
-    return pulse * envelope * (0.25 + 0.95 * strand);
+    return pulse * envelope * (0.08 + 1.40 * strand);
   }
 
   void main() {
