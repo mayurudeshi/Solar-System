@@ -127,6 +127,13 @@ Pluto's 17° tilt orient correctly relative to Neptune (and not just visibly
 - **Earth cloud layer.** Separate transparent sphere just outside
   Earth's surface with rotating cloud alpha map. Would also enable
   the night-side light overlay on the dark hemisphere.
+- **Animated Sun prominences + CMEs.** Existing prominences shader is
+  static. Feed spinEpochMs into the fbm noise term so loops/arches
+  breathe and crawl around the limb. Then add a periodic pulse term
+  that spawns 1-2 brighter outward arcs every N sim-seconds, peaks
+  over ~2s, fades over ~5s. Real CME data exists (NASA CDAW LASCO
+  catalog) but procedural will look alive 100% of the time vs only
+  during cataloged events, and skips the fetch/replay pipeline.
 
 ## Dev
 
