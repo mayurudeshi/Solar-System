@@ -123,15 +123,13 @@ const PROMINENCE_FRAGMENT = /* glsl */ `
     float dist = length(d);
     float envelope = exp(-dist * CME_FALLOFF);
 
-    // Polar-coordinate strand modulation — see CME_TRAIL_FRAGMENT.
-    // Same approach: noise in (theta, r) → radial filaments from burst.
-    float theta = atan(d.y, d.x);
-    vec2 polarUv = vec2(theta * 4.5, dist * 20.0)
-                 + vec2(uTime * 0.4, hash(vec2(cycleStart, 7.3)) * 17.0);
-    float strand = fbm(polarUv);
-    strand = pow(smoothstep(0.30, 0.62, strand), 0.7);
+    // Subtle anisotropic strand — see CME_TRAIL_FRAGMENT rationale.
+    vec2 strandUv = (uv - cmePos) * vec2(65.0, 20.0)
+                  + vec2(uTime * 0.6, hash(vec2(cycleStart, 7.3)) * 17.0);
+    float strand = fbm(strandUv);
+    strand = smoothstep(0.40, 0.75, strand);
 
-    return pulse * envelope * (0.05 + 1.55 * strand);
+    return pulse * envelope * (0.55 + 0.55 * strand);
   }
 
   void main() {
@@ -257,17 +255,25 @@ const PHOTOSPHERE_FRAGMENT = /* glsl */ `
 
     vec4 col = texture2D(uMap, sampleUv);
 
-    // Animated noise modulation, scaled to break up the perceived latitude
-    // banding. The noise UV is INDEPENDENT of the differential rotation —
-    // it drifts uniformly across the whole sphere, so its detail is
-    // continuous across latitudes (unlike the texture sample whose u is
-    // shifted by varying amounts per latitude). 12% amplitude is enough
-    // to interrupt the visual banding without overwhelming the underlying
-    // photosphere features.
-    vec2 noiseUv = vec2(vUv.x * 9.0, vUv.y * 5.0)
-                 + vec2(uTimeDays * 0.04, uTimeDays * 0.012);
-    float overlay = fbmP(noiseUv);
-    overlay = mix(0.88, 1.12, overlay);
+    // Animated noise modulation — visibly breaks up the perceived
+    // latitude banding that emerges over time from differential rotation
+    // smearing a static texture. Two octaves at different scales (one
+    // big, one small) so the disruption has structure at multiple
+    // frequencies and looks like granulation/convection cells rather
+    // than a uniform haze.
+    //
+    // The noise UVs are independent of the per-latitude rotation
+    // shift — they drift uniformly across the whole sphere, so the
+    // noise detail stays continuous across latitudes even where the
+    // texture sample's u-shift varies. That's what breaks the banding.
+    vec2 noiseUvA = vec2(vUv.x * 7.0, vUv.y * 4.5)
+                  + vec2(uTimeDays * 0.18, uTimeDays * 0.04);
+    vec2 noiseUvB = vec2(vUv.x * 26.0, vUv.y * 14.0)
+                  + vec2(uTimeDays * 0.40, -uTimeDays * 0.10);
+    float overlay = 0.6 * fbmP(noiseUvA) + 0.4 * fbmP(noiseUvB);
+    // 0.70..1.30 — 30% amplitude. Strong enough to actually disrupt the
+    // banding instead of being a faint shimmer on top of it.
+    overlay = mix(0.70, 1.30, overlay);
 
     gl_FragColor = vec4(col.rgb * uTint * overlay, col.a);
   }
@@ -390,19 +396,16 @@ const CME_TRAIL_FRAGMENT = /* glsl */ `
     float dist = length(d);
     float envelope = exp(-dist * CME_FALLOFF);
 
-    // STRAND MODULATION via POLAR noise — sample noise in (theta, r)
-    // around the burst center so it paints as RADIAL FILAMENTS shooting
-    // outward from the eruption point, not grid-aligned noise patches.
-    // theta * 4.5 → ~9 angular streaks per full revolution. r * 20 →
-    // each streak extends across roughly half the burst envelope before
-    // breaking. uTime drift makes the streaks crawl around the burst.
-    float theta = atan(d.y, d.x);
-    vec2 polarUv = vec2(theta * 4.5, dist * 20.0)
-                 + vec2(uTime * 0.4, hash(vec2(cycleStart, 7.3)) * 17.0);
-    float strand = fbm(polarUv);
-    strand = pow(smoothstep(0.30, 0.62, strand), 0.7);
+    // Subtle anisotropic strand modulation — gives the burst SOME internal
+    // texture variation so it's not a pure gaussian bump, without trying
+    // to fake actual filament tendrils (which need particles, not surface
+    // shaders — see README backlog "particle-based CME wisps").
+    vec2 strandUv = (uv - cmePos) * vec2(70.0, 22.0)
+                  + vec2(uTime * 0.6, hash(vec2(cycleStart, 7.3)) * 17.0);
+    float strand = fbm(strandUv);
+    strand = smoothstep(0.40, 0.75, strand);
 
-    return pulse * envelope * (0.05 + 1.60 * strand);
+    return pulse * envelope * (0.50 + 0.60 * strand);
   }
 
   void main() {

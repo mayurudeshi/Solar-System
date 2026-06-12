@@ -106,6 +106,14 @@ Pluto's 17° tilt orient correctly relative to Neptune (and not just visibly
 
 ## Backlog (unscheduled — pick by impact)
 
+- **Particle-based CME wisps (v1.4 candidate).** Current sun CMEs are
+  surface shaders on stacked spheres — gives "localized ejection" reads
+  well but cannot achieve true wispy filaments extending outward.
+  Real fix: each CME burst spawns a particle cluster traveling
+  radially outward in 3D space with fading trails. Each particle's
+  own trajectory + alpha-over-time produces actual volumetric tendrils
+  (the visual signature of LASCO coronagraph footage). Estimated 2-3
+  hours; the current shader approach has hit its ceiling.
 - **Pluto color completeness.** Current swap fixed the half-rendered
   sphere but lost the NASA enhanced-color palette. Real fix: custom
   shader that blends the NASA color mosaic across the imaged
