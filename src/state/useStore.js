@@ -35,6 +35,13 @@ export const useStore = create((set) => ({
   cameraDist: 0,
   setCameraDist: (d) => set({ cameraDist: d }),
 
+  // v1.5 Sun feature flag — toggles the experimental procedural Sun
+  // (particle CMEs + 3D-noise photosphere) in Scene.jsx. Default off
+  // so v1.4's stable Sun is what users see; flip on for development +
+  // side-by-side comparison.
+  sunV15: false,
+  toggleSunV15: () => set((s) => ({ sunV15: !s.sunV15 })),
+
   // Sets BOTH epoch sources — user-visible date jump, resyncs spin to orbit.
   setEpochMs: (epochMs) => set({ epochMs, spinEpochMs: epochMs }),
 
