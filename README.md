@@ -127,6 +127,10 @@ Pluto's 17° tilt orient correctly relative to Neptune (and not just visibly
 - **Earth cloud layer.** Separate transparent sphere just outside
   Earth's surface with rotating cloud alpha map. Would also enable
   the night-side light overlay on the dark hemisphere.
+- **Wider speed slider.** Currently 80px wide. Range covers 5 decades
+  (0.001x to 100x) on a log scale — every pixel is ~6% speed change,
+  which makes fine control near 1x physically hard. Bump to ~200px on
+  desktop, keep current width on mobile.
 - **Animated Sun prominences + CMEs.** Existing prominences shader is
   static. Feed spinEpochMs into the fbm noise term so loops/arches
   breathe and crawl around the limb. Then add a periodic pulse term
