@@ -64,10 +64,11 @@ const PROMINENCE_FRAGMENT = /* glsl */ `
   varying vec2 vUv;
   uniform float uTime;
 
-  #define CME_PERIOD     14.0   // seconds between CMEs on a single track
-  #define CME_PEAK_T      2.0   // ramp-up duration to peak brightness
-  #define CME_FADE_T      7.0   // fade duration after peak
-  #define CME_FALLOFF    13.0   // larger = tighter blob
+  #define CME_PERIOD      9.0   // seconds between CMEs on a single track
+  #define CME_PEAK_T      1.6   // ramp-up duration to peak brightness
+  #define CME_FADE_T      6.0   // fade duration after peak
+  #define CME_FALLOFF     5.0   // larger = tighter blob; smaller so a burst
+                                // always overlaps SOME limb on screen
 
   float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
@@ -125,30 +126,38 @@ const PROMINENCE_FRAGMENT = /* glsl */ `
   void main() {
     // View direction in view space (camera at origin, looking down -Z)
     vec3 viewDir = normalize(-vPosView);
-    // Fresnel: ~1 at grazing angle, ~0 head-on
-    float fresnel = 1.0 - abs(dot(vNormalView, viewDir));
-    fresnel = pow(fresnel, 3.0);
+    float grazing = 1.0 - abs(dot(vNormalView, viewDir));
+    // Strong Fresnel for the wisps — they hug the limb tightly.
+    float fresnelWisp = pow(grazing, 3.0);
+    // SOFTER Fresnel for CMEs — they bloom across more of the visible
+    // hemisphere, not just the razor-thin limb edge. Without this, a
+    // burst's UV center almost always lands somewhere Fresnel kills.
+    float fresnelCme  = pow(grazing, 1.4);
 
     // Two octaves of drifting fbm — filaments writhe and crawl around the
-    // limb over a few seconds. Speed bumped from 0.015/0.025 → 0.18/0.32
-    // so the motion reads at any zoom level.
+    // limb over a few seconds.
     float n  = fbm(vUv * vec2(28.0, 14.0) + vec2(uTime * 0.18,  0.0));
     float n2 = fbm(vUv * vec2(60.0, 30.0) + vec2(0.0, uTime * 0.32));
     float wisp = smoothstep(0.42, 0.85, n * 0.6 + n2 * 0.4);
 
-    float wispAlpha = fresnel * wisp * 0.95;
+    float wispAlpha = fresnelWisp * wisp * 0.95;
     vec3  wispCol   = mix(vec3(1.0, 0.30, 0.10), vec3(1.0, 0.55, 0.20), wisp);
 
-    // Two CME tracks staggered by half a period so the Sun usually has
-    // SOMETHING going off — one fading as another peaks.
+    // Three CME tracks staggered across the period so at any moment ~2 of
+    // them are active. Combined with the wider CME_FALLOFF, this means
+    // at least one burst overlaps the visible limb on most frames.
     float cycleA = floor(uTime / CME_PERIOD) * CME_PERIOD;
-    float cycleB = floor((uTime + CME_PERIOD * 0.5) / CME_PERIOD) * CME_PERIOD
-                   - CME_PERIOD * 0.5;
-    float cme = cmePulse(vUv, cycleA) + cmePulse(vUv, cycleB);
-    cme = min(cme, 1.5);
+    float cycleB = floor((uTime + CME_PERIOD / 3.0) / CME_PERIOD) * CME_PERIOD
+                   - CME_PERIOD / 3.0;
+    float cycleC = floor((uTime + 2.0 * CME_PERIOD / 3.0) / CME_PERIOD) * CME_PERIOD
+                   - 2.0 * CME_PERIOD / 3.0;
+    float cme = cmePulse(vUv, cycleA) + cmePulse(vUv, cycleB) + cmePulse(vUv, cycleC);
+    cme = min(cme, 1.6);
 
-    float cmeAlpha = fresnel * cme * 1.8;
-    vec3  cmeCol   = vec3(1.00, 0.92, 0.55); // hot yellow-white, hotter than wisps
+    // ×4.0 brightness so a bloomed CME visibly outshines the H-alpha
+    // photosphere underneath, which is already glowing hot.
+    float cmeAlpha = fresnelCme * cme * 4.0;
+    vec3  cmeCol   = vec3(1.00, 0.96, 0.78);  // near-white, hotter than wisps
 
     // Pre-multiply for additive blending — each layer contributes
     // color * alpha to the framebuffer independently.
