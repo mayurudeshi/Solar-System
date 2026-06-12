@@ -284,7 +284,11 @@ const CME_TRAIL_FRAGMENT = /* glsl */ `
   #define CME_PERIOD     12.0
   #define CME_PEAK_T      1.6
   #define CME_FADE_T      6.0
-  #define CME_FALLOFF    11.0
+  // Sharp falloff — at dist 0.10 the contribution is ~5%, at 0.20 it's
+  // ~0.2%, at 0.30 it's vanishing. Was 11.0, which left enough at the
+  // antipodal limb that fresnel painted the whole silhouette as faint
+  // continuous rings instead of a localized burst.
+  #define CME_FALLOFF    30.0
 
   float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
@@ -321,8 +325,10 @@ const CME_TRAIL_FRAGMENT = /* glsl */ `
     cme = min(cme, 1.2);
 
     float alpha = fresnel * cme * uBrightness;
-    // Slightly cooler near-white — by the time the plasma has reached
-    // these outer radii it's optically thinner and a touch more bluish.
+    // Discard near-zero contributions so the trail shells contribute
+    // EXACTLY nothing when no burst is locally active — guarantees the
+    // shells are invisible between firings instead of leaking faint rings.
+    if (alpha < 0.01) discard;
     vec3 col = vec3(0.98, 0.94, 0.82);
     gl_FragColor = vec4(col * alpha, 1.0);
   }
