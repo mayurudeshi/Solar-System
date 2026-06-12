@@ -102,13 +102,16 @@ export const PHOTOSPHERE_FRAG = /* glsl */ `
     // sample neighbouring points in noise-space (no banding artifact).
     vec3 sampleP = rotateY(dir, -rotAngle);
 
-    // Two scales of fbm: small for granulation, large for supergranulation.
-    // Time drift is REAL-time (uTime), independent of sim speed so the
-    // photosphere always shimmers at a natural pace regardless of how
-    // fast the user is winding the clock. Slow drift values picked so
-    // individual granulation cells live ~10+ real-seconds visually.
-    float small = fbm3(sampleP * 18.0 + vec3(uTime * 0.012, uTime * 0.008, 0.0), 4);
-    float large = fbm3(sampleP *  5.0 + vec3(0.0, uTime * 0.006, uTime * 0.004), 4);
+    // GRANULATION — rectified fbm produces ridge-like cell boundaries
+    // instead of smooth blobs. abs(fbm - 0.5) * 2 creates valleys at
+    // fbm=0.5 (cell centres) with peaks where the noise transitions —
+    // reads as the bright edges between solar granulation cells.
+    float smallRaw = fbm3(sampleP * 16.0 + vec3(uTime * 0.012, uTime * 0.008, 0.0), 4);
+    float cellEdge = 1.0 - abs(smallRaw - 0.5) * 2.0;   // 0=cell edge, 1=cell centre
+    float small    = smallRaw * 0.6 + cellEdge * 0.4;
+
+    // SUPERGRANULATION — smooth large-scale fbm for warm/cool flow.
+    float large = fbm3(sampleP * 5.0 + vec3(0.0, uTime * 0.006, uTime * 0.004), 4);
 
     // Active regions: a slow-evolving low-frequency field that picks out
     // a few bright spots (where the field is high). Multiplied by
