@@ -4,6 +4,8 @@ import { BODIES } from '../../data/bodies.js';
 import { DEG } from '../../lib/orbital.js';
 import { ProceduralPhotosphere } from './ProceduralPhotosphere.jsx';
 import { ParticleCMEs } from './ParticleCMEs.jsx';
+import { WispLimb } from './WispLimb.jsx';
+import { SunCorona } from './SunCorona.jsx';
 
 // v1.5 Sun composition. Mirrors the v1.4 Sun's external surface (selection
 // click, hover, lighting modes) so Scene.jsx can swap implementations via
@@ -38,8 +40,10 @@ export function SunV15() {
           hovered={hovered}
           eventHandlers={{ onClick, onPointerOver, onPointerOut }}
         />
+        <WispLimb />
       </group>
       <ParticleCMEs />
+      <SunCorona />
       <pointLight
         position={[0, 0, 0]}
         intensity={naturalLight ? NATURAL_INTENSITY : ARTIFICIAL_INTENSITY}

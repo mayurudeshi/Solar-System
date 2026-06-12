@@ -59,6 +59,8 @@ export function ControlBar() {
   const toggleMoons        = useStore((s) => s.toggleMoons);
   const cameraDist         = useStore((s) => s.cameraDist);
   const vantage            = useStore((s) => s.vantage);
+  const sunV15             = useStore((s) => s.sunV15);
+  const toggleSunV15       = useStore((s) => s.toggleSunV15);
 
   const sliderPos = speedToSlider(speed);
 
@@ -122,6 +124,14 @@ export function ControlBar() {
       >
         <input type="checkbox" checked={showMoons} onChange={toggleMoons} />
         {' '}moons
+      </label>
+      <label
+        className="toggle"
+        title="EXPERIMENTAL v1.5 Sun — procedural photosphere + particle CMEs. Work-in-progress. Flip back off any time."
+        style={{ color: '#d0a070' }}
+      >
+        <input type="checkbox" checked={sunV15} onChange={toggleSunV15} />
+        {' '}sun v1.5
       </label>
 
       <span
