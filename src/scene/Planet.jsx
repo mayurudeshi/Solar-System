@@ -84,23 +84,25 @@ function SaturnRings({ planetRadius, ringTexture }) {
   }, [INNER, OUTER]);
 
   // Particle field. Radii biased toward middle (B-ring dense region).
-  // We keep `radii` and `angles` typed-arrays so per-frame Kepler
-  // advancement is O(N) plain-JS arithmetic with no allocations.
+  // Built in the XY plane (z = tiny thickness) to MATCH the RingGeometry's
+  // native plane — so the wrapping group's [π/2, 0, 0] rotation moves
+  // BOTH disc and particles into the ecliptic XZ plane together. Earlier
+  // version put particles in XZ pre-rotation, which then got rotated 90°
+  // OUT of the disc plane — particles ended up perpendicular to the rings.
   const particleState = useRef(null);
   const particleGeom = useMemo(() => {
     const positions = new Float32Array(PARTICLE_COUNT * 3);
     const radii = new Float32Array(PARTICLE_COUNT);
     const angles = new Float32Array(PARTICLE_COUNT);
     for (let i = 0; i < PARTICLE_COUNT; i++) {
-      // Pow 0.7 biases distribution toward the bright B-ring middle
       const t = Math.pow(Math.random(), 0.7);
       const r = INNER + (OUTER - INNER) * t;
       const a = Math.random() * Math.PI * 2;
       radii[i] = r;
       angles[i] = a;
       positions[i * 3]     = Math.cos(a) * r;
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 0.02; // ring thickness
-      positions[i * 3 + 2] = Math.sin(a) * r;
+      positions[i * 3 + 1] = Math.sin(a) * r;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 0.02; // ring thickness
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -128,7 +130,8 @@ function SaturnRings({ planetRadius, ringTexture }) {
         const omega = Math.pow(INNER / r, 1.5);
         const a = angles[i] + tHrs * omega * 0.6;
         arr[i * 3]     = Math.cos(a) * r;
-        arr[i * 3 + 2] = Math.sin(a) * r;
+        arr[i * 3 + 1] = Math.sin(a) * r;
+        // arr[i * 3 + 2] stays as init thickness — no per-frame update.
       }
       positions.needsUpdate = true;
     }
