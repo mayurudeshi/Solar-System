@@ -340,7 +340,8 @@ function Photosphere({ texture, hovered, eventHandlers }) {
 const CME_MAX = 900;          // particle pool size
 const CME_BURST_PERIOD = 9.0; // seconds between eruptions
 const CME_EMIT_WINDOW = 2.2;  // seconds an eruption keeps emitting
-const CME_LIFETIME = 6.5;     // particle lifetime seconds
+const CME_LIFETIME = 4.0;     // shorter (was 6.5) so plasma fades before
+                              // reaching planet orbits — MJ saw one reach Earth
 const SUN_SURFACE_R = 3.4;
 
 function SunCMEParticles() {
@@ -362,7 +363,7 @@ function SunCMEParticles() {
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
-      uniforms: { uPixelScale: { value: 230 } },
+      uniforms: { uPixelScale: { value: 130 } },
       vertexShader: /* glsl */ `
         attribute float aAge;
         attribute float aSeed;
@@ -374,9 +375,9 @@ function SunCMEParticles() {
           vSeed = aSeed;
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mv;
-          // Grow modestly as the particle ages (plasma expands), small base.
-          float grow = 1.0 + 1.6 * aAge;
-          float base = 3.0 + 5.0 * aSeed;
+          // Small particles. Grow gently as they age (plasma expands).
+          float grow = 1.0 + 1.1 * aAge;
+          float base = 1.6 + 2.6 * aSeed;
           gl_PointSize = base * grow * uPixelScale / max(0.001, -mv.z);
           if (aAge >= 1.0) gl_PointSize = 0.0; // dead → invisible
         }
@@ -389,17 +390,16 @@ function SunCMEParticles() {
           float r = length(d);
           if (r > 0.5) discard;
           float soft = smoothstep(0.5, 0.0, r);
-          // Sharp birth, smooth decay over life.
-          float life = vAge < 0.12 ? vAge / 0.12 : 1.0 - (vAge - 0.12) / 0.88;
+          // Gentle rise, smooth decay over life.
+          float life = vAge < 0.18 ? vAge / 0.18 : 1.0 - (vAge - 0.18) / 0.82;
           life = clamp(life, 0.0, 1.0);
-          float alpha = soft * life * 0.7;
-          // Hot near-white at birth → orange → deep red as it cools/expands.
-          vec3 birth = vec3(1.0, 0.95, 0.80);
-          vec3 mid   = vec3(1.0, 0.55, 0.18);
-          vec3 old   = vec3(0.85, 0.22, 0.08);
-          vec3 col = vAge < 0.5
-            ? mix(birth, mid, vAge / 0.5)
-            : mix(mid, old, (vAge - 0.5) / 0.5);
+          float alpha = soft * life * 0.34;   // dimmer (was 0.7)
+          // NO white-hot kernel — MJ disliked the bright birth ("sun shitting
+          // a piece"). Erupt directly in the warm faded orange he liked from
+          // the trailing edge, and continue fading to deep red.
+          vec3 birth = vec3(1.0, 0.50, 0.16);  // warm orange (the liked color)
+          vec3 old   = vec3(0.80, 0.20, 0.07); // deep red
+          vec3 col = mix(birth, old, vAge);
           gl_FragColor = vec4(col * alpha, alpha);
         }
       `,
@@ -459,8 +459,10 @@ function SunCMEParticles() {
         const fy = origin.y * SUN_SURFACE_R + (Math.random() - 0.5) * jitter * (tA.y + tB.y);
         const fz = origin.z * SUN_SURFACE_R + (Math.random() - 0.5) * jitter * (tA.z + tB.z);
         pos[i * 3] = fx; pos[i * 3 + 1] = fy; pos[i * 3 + 2] = fz;
-        // velocity: mostly radial outward + cone spread + speed variance
-        const speed = 0.35 + Math.random() * 0.55;
+        // velocity: mostly radial outward + cone spread + speed variance.
+        // Slower (was 0.35-0.90) so max travel ≈ speed×lifetime stays local
+        // (~0.55×4 = 2.2 units beyond the surface) and never reaches orbits.
+        const speed = 0.22 + Math.random() * 0.33;
         const spread = 0.18;
         const a = (Math.random() - 0.5) * spread;
         const b = (Math.random() - 0.5) * spread;
