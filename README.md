@@ -74,6 +74,32 @@ Pluto's 17° tilt orient correctly relative to Neptune (and not just visibly
 
 ## Status
 
+**v1.5 — locked 2026-06-13. The Sun overhaul.** Built with a headless
+WebGL render harness (`tools/render_sun.mjs`) so shader changes could be
+seen + iterated directly instead of guessed blind.
+
+- **Photosphere banding eliminated.** Differential rotation on a static
+  texture sheared it into latitude bands over long sessions (the "wind
+  effect"). Switched to solid-body rotation → zero inter-latitude shear →
+  can never band, verified at a 2500-sim-day soak.
+- **Particle CMEs replace the concentric "trail shell" rings.** Plumes
+  erupt from the limb, travel outward (capped short of planet orbits),
+  warm-orange→red, no white-hot kernel. Rotate with the surface so they
+  stay anchored to their origin spot.
+- **Surface flares / active regions** rendered IN the photosphere shader
+  as genuine brightenings across the whole disc, weighted to the activity
+  belts (~±35°), brief flashes, never a "disco ball" or pasted-sprite look.
+- Earth/Venus/Neptune now show A/P apsis markers (threshold bug fixed).
+- Ariel + Titania (Uranus moons) added with Voyager 2 imagery + tidal lock.
+- Earth cloud layer; real tidal-lock phase for all moons; zoom meter;
+  wider speed slider.
+
+(The earlier experimental procedural-photosphere code under
+`src/scene/sun-v15/` is SUPERSEDED — its goals were achieved on the live
+textured Sun instead. Parked behind a default-off flag; safe to delete.)
+
+---
+
 **v1.0 — locked 2026-06-11.** All v1 features shipped:
 
 - 8 planets + Pluto with J2000 date-accurate positions (JPL Keplerian
