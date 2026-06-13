@@ -33,6 +33,28 @@ export function VantageCamera() {
     }
   }, [vantage]);
 
+  // Dev hook — expose camera + controls so the headless render harness can
+  // position the camera at an exact distance from the target (precise zoom)
+  // for screenshot-driven shader iteration. Harmless in prod.
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        window.__camera = camera;
+        window.__controls = controlsRef.current;
+        // Helper: set camera to `dist` units from current target along the
+        // current view direction. Used by render_sun.mjs.
+        window.__setZoom = (dist) => {
+          const c = controlsRef.current;
+          if (!c) return false;
+          const dir = camera.position.clone().sub(c.target).normalize();
+          camera.position.copy(c.target).add(dir.multiplyScalar(dist));
+          c.update();
+          return true;
+        };
+      }
+    } catch (_) { /* no-op */ }
+  }, [camera]);
+
   useFrame(() => {
     const c = controlsRef.current;
     if (!c) return;

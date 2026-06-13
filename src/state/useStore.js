@@ -67,3 +67,15 @@ export const useStore = create((set) => ({
   toggleNaturalLight: ()              => set((s) => ({ naturalLight: !s.naturalLight })),
   toggleMoons:        ()              => set((s) => ({ showMoons: !s.showMoons })),
 }));
+
+// Dev hook — expose the store on window so the headless render harness
+// (tools/render_sun.mjs) can drive vantage/zoom/toggles programmatically
+// instead of simulating UI clicks + scroll wheel. Harmless in prod (just
+// a global ref); enables Claude to see its own shader changes via
+// screenshot-render loop. Gated behind a try so SSR/no-window contexts
+// don't choke.
+try {
+  if (typeof window !== 'undefined') {
+    window.__solarStore = useStore;
+  }
+} catch (_) { /* no-op */ }
