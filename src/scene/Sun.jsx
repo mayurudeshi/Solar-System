@@ -390,10 +390,12 @@ function SunCMEParticles() {
           float r = length(d);
           if (r > 0.5) discard;
           float soft = smoothstep(0.5, 0.0, r);
-          // Gentle rise, smooth decay over life.
-          float life = vAge < 0.18 ? vAge / 0.18 : 1.0 - (vAge - 0.18) / 0.82;
+          // Brightness peaks LATER in life (0.35) so the initial foot burst
+          // is dim — MJ wanted the white-hot initial flash reduced further.
+          // Particle brightens as it rises off the surface, then fades.
+          float life = vAge < 0.35 ? vAge / 0.35 : 1.0 - (vAge - 0.35) / 0.65;
           life = clamp(life, 0.0, 1.0);
-          float alpha = soft * life * 0.34;   // dimmer (was 0.7)
+          float alpha = soft * life * 0.32;
           // NO white-hot kernel — MJ disliked the bright birth ("sun shitting
           // a piece"). Erupt directly in the warm faded orange he liked from
           // the trailing edge, and continue fading to deep red.
@@ -459,10 +461,16 @@ function SunCMEParticles() {
         const fy = origin.y * SUN_SURFACE_R + (Math.random() - 0.5) * jitter * (tA.y + tB.y);
         const fz = origin.z * SUN_SURFACE_R + (Math.random() - 0.5) * jitter * (tA.z + tB.z);
         pos[i * 3] = fx; pos[i * 3 + 1] = fy; pos[i * 3 + 2] = fz;
-        // velocity: mostly radial outward + cone spread + speed variance.
-        // Slower (was 0.35-0.90) so max travel ≈ speed×lifetime stays local
-        // (~0.55×4 = 2.2 units beyond the surface) and never reaches orbits.
-        const speed = 0.22 + Math.random() * 0.33;
+        // Two classes (MJ 2026-06-13): most particles are LOCAL EXPLOSIONS
+        // that barely escape the surface (he likes these as constant surface
+        // activity); ~30% are PLUMES that travel a tad further out. Same
+        // lifetime, so distance is driven purely by speed:
+        //   explosion: 0.14-0.30 × 4s ≈ 0.6-1.2 units (hugs surface)
+        //   plume:     0.62-0.92 × 4s ≈ 2.5-3.7 units (escapes, stays < orbits)
+        const isPlume = Math.random() > 0.68;
+        const speed = isPlume
+          ? 0.62 + Math.random() * 0.30
+          : 0.14 + Math.random() * 0.16;
         const spread = 0.18;
         const a = (Math.random() - 0.5) * spread;
         const b = (Math.random() - 0.5) * spread;
