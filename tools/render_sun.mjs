@@ -37,6 +37,12 @@ page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}`));
 
 await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
 
+// Inject BODIES_ONLY list before driving the scene.
+const bodiesOnly = process.env.BODIES_ONLY ? process.env.BODIES_ONLY.split(',') : null;
+if (bodiesOnly) {
+  await page.evaluate((list) => { window.__bodiesOnly = list; }, bodiesOnly);
+}
+
 // Wait for the R3F canvas to exist.
 await page.waitForSelector('canvas', { timeout: 15000 });
 
@@ -65,6 +71,15 @@ const drove = await page.evaluate(async ({ targetDist, enableV15 }) => {
   if (store) {
     store.getState().setVantage('sun');
     if (enableV15 && !store.getState().sunV15) { store.getState().toggleSunV15(); result.v15 = true; }
+    // BODIES_ONLY="Earth,Jupiter" → show only those planets (v1.6 test)
+    if (window.__bodiesOnly) {
+      const st = store.getState();
+      if (st.showOnlySun) {
+        st.showOnlySun();
+        window.__bodiesOnly.forEach((n) => st.toggleBody(n));
+        result.bodiesOnly = window.__bodiesOnly;
+      }
+    }
     result.vantageSet = true;
     result.method = 'store';
   } else {

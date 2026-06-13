@@ -20,8 +20,9 @@ import { useStore } from '../state/useStore.js';
 // orientation immediately, which is the headline visual feature.
 const MS_PER_CENTURY = 36525 * 86400000;
 
-export function OrbitPath({ body, samples = 256 }) {
+export function OrbitPath({ name, body, samples = 256 }) {
   const showOrbits      = useStore((s) => s.showOrbits);
+  const bodyShown       = useStore((s) => s.bodyVisible[name] !== false);
   const trueInclination = useStore((s) => s.trueInclination);
   const orbitBucket     = useStore((s) =>
     Math.floor(((s.epochMs - Date.UTC(2000, 0, 1, 12)) / MS_PER_CENTURY) * 100)
@@ -45,7 +46,7 @@ export function OrbitPath({ body, samples = 256 }) {
     return g;
   }, [body, trueInclination, orbitBucket, samples]);
 
-  if (!showOrbits) return null;
+  if (!showOrbits || !bodyShown) return null;
 
   return (
     <line geometry={geometry}>

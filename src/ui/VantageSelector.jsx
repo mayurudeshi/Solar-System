@@ -1,37 +1,21 @@
 import { useStore } from '../state/useStore.js';
-import { BODY_NAMES } from '../data/bodies.js';
+import { PLANET_NAMES } from '../data/bodies.js';
 
-// Segmented Sun · Mercury · Venus · ... · Pluto · Free selector.
-// Collapses to a native <select> below 600px to save mobile real estate.
+// Camera vantage as a single dropdown. Uses PLANET_NAMES (not BODY_NAMES)
+// so the Sun appears exactly ONCE — the old segmented version did
+// ['sun', ...BODY_NAMES] and BODY_NAMES already contained 'Sun', which
+// rendered a duplicate "Sun  Sun" (MJ flagged 2026-06-13).
 export function VantageSelector() {
   const vantage = useStore((s) => s.vantage);
   const setVantage = useStore((s) => s.setVantage);
-  const options = ['sun', ...BODY_NAMES, 'free'];
+  const options = ['sun', ...PLANET_NAMES, 'free'];
   const labelFor = (v) => (v === 'sun' ? 'Sun' : v === 'free' ? 'Free' : v);
 
   return (
     <div className="vantage">
       <span className="vantage-label">Vantage</span>
-
-      {/* Desktop / wide */}
-      <div className="seg vantage-seg-desktop" role="radiogroup" aria-label="Camera vantage point">
-        {options.map((v) => (
-          <button
-            key={v}
-            className={`seg-btn${vantage === v ? ' on' : ''}`}
-            onClick={() => setVantage(v)}
-            role="radio"
-            aria-checked={vantage === v}
-            aria-label={`Vantage: ${labelFor(v)}`}
-          >
-            {labelFor(v)}
-          </button>
-        ))}
-      </div>
-
-      {/* Mobile / narrow */}
       <select
-        className="vantage-select-mobile"
+        className="vantage-select"
         value={vantage}
         onChange={(e) => setVantage(e.target.value)}
         aria-label="Camera vantage point"

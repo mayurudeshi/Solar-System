@@ -105,6 +105,8 @@ export function Moon({ name, moon, parent }) {
   const ref = useRef();
   const spinMeshRef = useRef();
   const { camera } = useThree();
+  // v1.6: hide this moon when its parent planet is toggled off.
+  const parentShown = useStore((s) => s.bodyVisible[moon.parent] !== false);
   const setSelected = useStore((s) => s.setSelected);
   const [hovered, setHovered] = useState(false);
   const [visible, setVisible] = useState(true);
@@ -195,7 +197,7 @@ export function Moon({ name, moon, parent }) {
   // (invisible, non-raycastable, ~zero cost) and can be revealed when
   // the camera approaches.
   return (
-    <group ref={ref} visible={visible}>
+    <group ref={ref} visible={visible && parentShown}>
       <mesh ref={spinMeshRef}>
         <sphereGeometry args={[radius, 32, 32]} />
         {/* key={texture ? 'with-tex' : 'no-tex'} remounts the material when
@@ -212,15 +214,18 @@ export function Moon({ name, moon, parent }) {
           emissiveIntensity={hovered ? 0.2 : 0}
         />
       </mesh>
-      {/* Invisible enlarged click target — the real raycast hit. */}
-      <mesh
-        onClick={onClick}
-        onPointerOver={onPointerOver}
-        onPointerOut={onPointerOut}
-        visible={false}
-      >
-        <sphereGeometry args={[hitRadius, 16, 16]} />
-      </mesh>
+      {/* Invisible enlarged click target — the real raycast hit. Gated on
+          parentShown so a hidden planet's moons aren't clickable (v1.6). */}
+      {parentShown && (
+        <mesh
+          onClick={onClick}
+          onPointerOver={onPointerOver}
+          onPointerOut={onPointerOut}
+          visible={false}
+        >
+          <sphereGeometry args={[hitRadius, 16, 16]} />
+        </mesh>
+      )}
     </group>
   );
 }

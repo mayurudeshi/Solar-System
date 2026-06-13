@@ -277,6 +277,7 @@ export function Planet({ name, body }) {
   const tiltGroupRef = useRef();
   const spinMeshRef = useRef();
   const setSelected = useStore((s) => s.setSelected);
+  const visible = useStore((s) => s.bodyVisible[name] !== false);
   const [hovered, setHovered] = useState(false);
 
   const radius = useMemo(() => bodyRadius(body), [body]);
@@ -326,8 +327,12 @@ export function Planet({ name, body }) {
     document.body.style.cursor = '';
   };
 
+  // v1.6: `visible` toggles the whole planet. Keep the group MOUNTED (so
+  // the useFrame position ref stays alive) but invisible; gate the click
+  // target so a hidden planet can't be clicked (R3F raycasts invisible
+  // meshes that carry handlers, so we conditionally render it instead).
   return (
-    <group ref={orbitGroupRef}>
+    <group ref={orbitGroupRef} visible={visible}>
       <group ref={tiltGroupRef} rotation={[0, 0, body.axial * DEG]}>
         <mesh ref={spinMeshRef}>
           <sphereGeometry args={[radius, 48, 48]} />
@@ -346,14 +351,16 @@ export function Planet({ name, body }) {
           <EarthClouds planetRadius={radius} />
         )}
       </group>
-      <mesh
-        onClick={onClick}
-        onPointerOver={onPointerOver}
-        onPointerOut={onPointerOut}
-        visible={false}
-      >
-        <sphereGeometry args={[hitRadius, 16, 16]} />
-      </mesh>
+      {visible && (
+        <mesh
+          onClick={onClick}
+          onPointerOver={onPointerOver}
+          onPointerOut={onPointerOut}
+          visible={false}
+        >
+          <sphereGeometry args={[hitRadius, 16, 16]} />
+        </mesh>
+      )}
     </group>
   );
 }

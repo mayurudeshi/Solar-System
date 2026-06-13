@@ -28,10 +28,10 @@ export function Scene() {
         <Planet key={name} name={name} body={BODIES[name]} />
       ))}
       {PLANET_NAMES.map((name) => (
-        <OrbitPath key={`orbit-${name}`} body={BODIES[name]} />
+        <OrbitPath key={`orbit-${name}`} name={name} body={BODIES[name]} />
       ))}
       {PLANET_NAMES.map((name) => (
-        <ApsisMarkers key={`apsis-${name}`} body={BODIES[name]} />
+        <ApsisMarkers key={`apsis-${name}`} name={name} body={BODIES[name]} />
       ))}
       {MOON_NAMES.map((name) => (
         <Moon

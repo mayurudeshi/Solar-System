@@ -174,22 +174,50 @@ input[type='date'] {
 .readout-date { color: var(--text); font-weight: 500; }
 .readout-sep { color: var(--text-dim); }
 
-/* ── vantage segmented selector — desktop vs mobile ──────────────────── */
+/* ── vantage dropdown (v1.6 — single select, no duplicate Sun) ────────── */
 
-.vantage-seg-desktop { display: inline-flex; }
-.vantage-select-mobile {
-  display: none;
+.vantage-select {
   background: transparent; color: var(--text);
   border: 1px solid var(--border); border-radius: 6px;
   padding: 4px 8px; font-size: 12px; font-family: var(--sans);
 }
-.vantage-select-mobile option { background: var(--panel); color: var(--text); }
+.vantage-select option { background: var(--panel); color: var(--text); }
+
+/* ── per-planet visibility panel (v1.6) ──────────────────────────────── */
+
+.bodies { position: relative; display: inline-flex; align-items: center; }
+.bodies-toggle { white-space: nowrap; }
+.bodies-count { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.bodies-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  min-width: 180px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.bodies-actions { display: flex; gap: 6px; margin-bottom: 6px; }
+.bodies-actions .btn-sm { flex: 1; text-align: center; }
+.body-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 4px; border-radius: 5px; cursor: pointer; font-size: 13px;
+}
+.body-row:hover { background: var(--panel-hi); }
+.body-row-locked { cursor: default; opacity: 0.8; }
+.body-dot {
+  width: 11px; height: 11px; border-radius: 50%;
+  flex: 0 0 auto; box-shadow: 0 0 4px rgba(0,0,0,0.5) inset;
+}
+.body-name { color: var(--text); flex: 1; }
+.body-lock { color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
 
 /* ── responsive collapse: phones (≤640px) ────────────────────────────── */
 
 @media (max-width: 640px) {
-  .vantage-seg-desktop { display: none; }
-  .vantage-select-mobile { display: inline-block; }
   .hint { display: none; }
 
   /* Mobile bar: single row, HORIZONTAL SCROLL. Wrapping the bar's children

@@ -3,6 +3,7 @@ import { Scene } from './scene/Scene.jsx';
 import { ControlBar } from './ui/ControlBar.jsx';
 import { InfoPanel } from './ui/InfoPanel.jsx';
 import { VantageSelector } from './ui/VantageSelector.jsx';
+import { BodyVisibilityPanel } from './ui/BodyVisibilityPanel.jsx';
 import { DateScrubber } from './ui/DateScrubber.jsx';
 import { SimDateReadout } from './ui/SimDateReadout.jsx';
 
@@ -13,6 +14,7 @@ export default function App() {
       <header className="top-bar">
         <ControlBar />
         <VantageSelector />
+        <BodyVisibilityPanel />
         <DateScrubber />
       </header>
       <InfoPanel />

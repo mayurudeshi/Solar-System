@@ -29,8 +29,9 @@ const MIN_E_FOR_DISPLAY = 0.0005;
 const MS_PER_CENTURY = 36525 * 86400000;
 const J2000_MS = Date.UTC(2000, 0, 1, 12);
 
-export function ApsisMarkers({ body }) {
+export function ApsisMarkers({ name, body }) {
   const showApsides     = useStore((s) => s.showApsides);
+  const bodyShown       = useStore((s) => s.bodyVisible[name] !== false);
   const trueInclination = useStore((s) => s.trueInclination);
   const orbitBucket     = useStore((s) =>
     Math.floor(((s.epochMs - J2000_MS) / MS_PER_CENTURY) * 100)
@@ -56,7 +57,7 @@ export function ApsisMarkers({ body }) {
     };
   }, [body, trueInclination, orbitBucket]);
 
-  if (!showApsides || !positions) return null;
+  if (!showApsides || !bodyShown || !positions) return null;
 
   const [px, py, pz] = eclipticToThreePosition(auVecToSceneUnits(positions.peri));
   const [ax, ay, az] = eclipticToThreePosition(auVecToSceneUnits(positions.apo));
