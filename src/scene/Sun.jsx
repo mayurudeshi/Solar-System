@@ -258,7 +258,27 @@ const PHOTOSPHERE_FRAGMENT = /* glsl */ `
                  + vec2(uTimeDays * 0.10, uTimeDays * 0.03);
     float overlay = mix(0.94, 1.06, fbmP(noiseUv));
 
-    gl_FragColor = vec4(col.rgb * uTint * overlay, col.a);
+    vec3 surf = col.rgb * uTint * overlay;
+
+    // ACTIVE REGIONS / FLARES — bright brightenings scattered across the
+    // WHOLE disc (MJ 2026-06-13: flares should dot the whole surface, not
+    // just the rim, and look natural not like overlay sprites). Done IN the
+    // photosphere shader so they're genuine surface brightening: sampled in
+    // the rotating sampleUv space → they move with the surface, follow its
+    // curvature, and never read as pasted dots. Latitude-weighted toward the
+    // activity belts (~±35°) like the real Sun.
+    float belt = exp(-pow((vUv.y - 0.5) * 3.4, 2.0)); // brightest mid-latitudes
+    float field = fbmP(sampleUv * vec2(7.0, 4.5) + vec2(3.1, 8.7));
+    // each candidate region flashes briefly on its own phase
+    float phase = field * 40.0;
+    float flare = sin(uTimeDays * 6.2831 * 0.45 + phase) * 0.5 + 0.5;
+    flare = pow(flare, 7.0);                            // brief sharp flashes
+    float region = smoothstep(0.70, 0.88, field) * flare * belt;
+    // limb-darkening-aware: brighten less at the very edge so it reads as
+    // surface, not a rim sprite.
+    surf += region * vec3(1.0, 0.66, 0.30) * 0.85;
+
+    gl_FragColor = vec4(surf, col.a);
   }
 `;
 
@@ -490,15 +510,11 @@ function SunCMEParticles() {
     const age = geometry.attributes.aAge.array;
     const typeArr = geometry.attributes.aType.array;
 
-    // ── OCCASIONAL FLARES — soft surface brightenings, sparse. MJ called the
-    // previous ~9/sec a disco ball; dropped to ~1.2/sec, single small cluster,
-    // so a flare blooms here and there rather than strobing all over.
-    if (Math.random() < dt * 2.6) {
-      const dir = randDir();
-      const [tA, tB] = tangents(dir);
-      const cluster = 2 + Math.floor(Math.random() * 3); // 2-4 particles
-      for (let c = 0; c < cluster; c++) spawn(s, pos, age, typeArr, 0, dir, tA, tB);
-    }
+    // NOTE: surface FLARES are now rendered IN the photosphere shader (as
+    // genuine surface brightenings across the whole disc), not as particles.
+    // Particles handle PLUMES only — eruptions that actually leave the
+    // surface, which is the one thing a surface shader can't do. (MJ
+    // 2026-06-13.)
 
     // ── PERIODIC PLUMES — occasional eruption from one point, emits over a
     // window to form a stream.
