@@ -337,12 +337,13 @@ function Photosphere({ texture, hovered, eventHandlers }) {
 //     → forms an elongated tendril, not a sphere
 //   - Small points, additive blend, hot-white→orange→transparent by age
 //   - Curl-ish lateral drift so the stream isn't a straight line
-const CME_MAX = 900;          // particle pool size
-const CME_BURST_PERIOD = 9.0; // seconds between eruptions
-const CME_EMIT_WINDOW = 2.2;  // seconds an eruption keeps emitting
-const CME_LIFETIME = 4.0;     // shorter (was 6.5) so plasma fades before
-                              // reaching planet orbits — MJ saw one reach Earth
+const CME_MAX = 1200;          // particle pool size
+const CME_BURST_PERIOD = 9.0;  // seconds between plume eruptions
+const CME_EMIT_WINDOW = 2.2;   // seconds a plume keeps emitting
+const PLUME_LIFETIME = 4.0;    // plume particle life (stays short of orbits)
+const FLARE_LIFETIME = 1.6;    // flare bloom is brief — pops and vanishes
 const SUN_SURFACE_R = 3.4;
+const ROT_PERIOD_DAYS_CME = 25.38; // must match photosphere ROT_PERIOD_DAYS
 
 function SunCMEParticles() {
   const pointsRef = useRef();
@@ -350,14 +351,16 @@ function SunCMEParticles() {
 
   const { geometry, material } = useMemo(() => {
     const positions = new Float32Array(CME_MAX * 3);
-    const ages = new Float32Array(CME_MAX);      // 0..1 normalized
-    const seeds = new Float32Array(CME_MAX);     // per-particle random
+    const ages = new Float32Array(CME_MAX);   // 0..1 normalized
+    const seeds = new Float32Array(CME_MAX);  // per-particle random
+    const types = new Float32Array(CME_MAX);  // 0 = flare, 1 = plume
     for (let i = 0; i < CME_MAX; i++) { ages[i] = 1.0; seeds[i] = Math.random(); }
 
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     g.setAttribute('aAge', new THREE.BufferAttribute(ages, 1));
     g.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
+    g.setAttribute('aType', new THREE.BufferAttribute(types, 1));
 
     const m = new THREE.ShaderMaterial({
       transparent: true,
@@ -367,42 +370,53 @@ function SunCMEParticles() {
       vertexShader: /* glsl */ `
         attribute float aAge;
         attribute float aSeed;
+        attribute float aType;
         uniform float uPixelScale;
         varying float vAge;
-        varying float vSeed;
+        varying float vType;
         void main() {
           vAge = aAge;
-          vSeed = aSeed;
+          vType = aType;
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mv;
-          // Small particles. Grow gently as they age (plasma expands).
-          float grow = 1.0 + 1.1 * aAge;
-          float base = 1.6 + 2.6 * aSeed;
+          // Flares (type 0): bigger, bloom outward fast → read as bright
+          // surface flashes. Plumes (type 1): smaller, gentle growth.
+          float base = aType < 0.5 ? (3.5 + 4.0 * aSeed) : (1.6 + 2.6 * aSeed);
+          float grow = aType < 0.5 ? (1.0 + 2.2 * aAge) : (1.0 + 1.1 * aAge);
           gl_PointSize = base * grow * uPixelScale / max(0.001, -mv.z);
-          if (aAge >= 1.0) gl_PointSize = 0.0; // dead → invisible
+          if (aAge >= 1.0) gl_PointSize = 0.0;
         }
       `,
       fragmentShader: /* glsl */ `
         varying float vAge;
-        varying float vSeed;
+        varying float vType;
         void main() {
           vec2 d = gl_PointCoord - 0.5;
           float r = length(d);
           if (r > 0.5) discard;
           float soft = smoothstep(0.5, 0.0, r);
-          // Brightness peaks LATER in life (0.35) so the initial foot burst
-          // is dim — MJ wanted the white-hot initial flash reduced further.
-          // Particle brightens as it rises off the surface, then fades.
-          float life = vAge < 0.35 ? vAge / 0.35 : 1.0 - (vAge - 0.35) / 0.65;
-          life = clamp(life, 0.0, 1.0);
-          float alpha = soft * life * 0.32;
-          // NO white-hot kernel — MJ disliked the bright birth ("sun shitting
-          // a piece"). Erupt directly in the warm faded orange he liked from
-          // the trailing edge, and continue fading to deep red.
-          vec3 birth = vec3(1.0, 0.50, 0.16);  // warm orange (the liked color)
-          vec3 old   = vec3(0.80, 0.20, 0.07); // deep red
-          vec3 col = mix(birth, old, vAge);
-          gl_FragColor = vec4(col * alpha, alpha);
+
+          if (vType < 0.5) {
+            // FLARE — bright surface flash. Quick bright rise, fast fade.
+            // Hot yellow-white core so it POPS against the orange surface
+            // (additive). These are the constant local surface explosions.
+            float life = vAge < 0.25 ? vAge / 0.25 : 1.0 - (vAge - 0.25) / 0.75;
+            life = clamp(life, 0.0, 1.0);
+            float alpha = soft * life * 0.55;
+            vec3 hot  = vec3(1.0, 0.92, 0.55);  // bright yellow-white flash
+            vec3 cool = vec3(1.0, 0.45, 0.13);  // → orange as it fades
+            vec3 col = mix(cool, hot, life);    // brightest at peak life
+            gl_FragColor = vec4(col * alpha, alpha);
+          } else {
+            // PLUME — dim warm orange stream, no white-hot kernel.
+            float life = vAge < 0.35 ? vAge / 0.35 : 1.0 - (vAge - 0.35) / 0.65;
+            life = clamp(life, 0.0, 1.0);
+            float alpha = soft * life * 0.30;
+            vec3 birth = vec3(1.0, 0.50, 0.16);
+            vec3 old   = vec3(0.80, 0.20, 0.07);
+            vec3 col = mix(birth, old, vAge);
+            gl_FragColor = vec4(col * alpha, alpha);
+          }
         }
       `,
     });
@@ -414,89 +428,123 @@ function SunCMEParticles() {
     sim.current = {
       vel: new Float32Array(CME_MAX * 3),
       born: new Float32Array(CME_MAX),
+      life: new Float32Array(CME_MAX),   // per-particle lifetime
       alive: new Uint8Array(CME_MAX),
       cursor: 0,
       t: 0,
       lastBurst: -999,
-      burst: null, // {origin:Vec3, tangentA, tangentB, until}
+      burst: null,
+      prevSpin: null,  // previous spinEpochMs for rotation tracking
     };
   }, []);
 
-  const tmp = useRef(new THREE.Vector3());
+  // Spawn one particle. type: 0 flare, 1 plume. dir = surface unit vector.
+  const spawn = (s, pos, age, typeArr, type, dir, tA, tB) => {
+    const i = s.cursor;
+    s.cursor = (s.cursor + 1) % CME_MAX;
+    const jitter = type === 0 ? 0.12 : 0.06;
+    pos[i * 3]     = dir.x * SUN_SURFACE_R + (Math.random() - 0.5) * jitter * (tA.x + tB.x);
+    pos[i * 3 + 1] = dir.y * SUN_SURFACE_R + (Math.random() - 0.5) * jitter * (tA.y + tB.y);
+    pos[i * 3 + 2] = dir.z * SUN_SURFACE_R + (Math.random() - 0.5) * jitter * (tA.z + tB.z);
+    let speed, spread;
+    if (type === 0) { speed = 0.05 + Math.random() * 0.10; spread = 0.5; } // flare: tiny pop
+    else            { speed = 0.62 + Math.random() * 0.30; spread = 0.18; } // plume: reach out
+    const a = (Math.random() - 0.5) * spread;
+    const b = (Math.random() - 0.5) * spread;
+    s.vel[i * 3]     = (dir.x + tA.x * a + tB.x * b) * speed;
+    s.vel[i * 3 + 1] = (dir.y + tA.y * a + tB.y * b) * speed;
+    s.vel[i * 3 + 2] = (dir.z + tA.z * a + tB.z * b) * speed;
+    s.born[i] = s.t;
+    s.life[i] = type === 0 ? FLARE_LIFETIME : PLUME_LIFETIME;
+    s.alive[i] = 1;
+    age[i] = 0.0001;
+    typeArr[i] = type;
+  };
+
+  const randDir = () => {
+    const u = Math.random() * 2 - 1;
+    const th = Math.random() * Math.PI * 2;
+    const rr = Math.sqrt(1 - u * u);
+    return new THREE.Vector3(rr * Math.cos(th), u, rr * Math.sin(th));
+  };
+  const tangents = (dir) => {
+    const up = Math.abs(dir.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+    const tA = new THREE.Vector3().crossVectors(up, dir).normalize();
+    const tB = new THREE.Vector3().crossVectors(dir, tA).normalize();
+    return [tA, tB];
+  };
 
   useFrame((_, dtRaw) => {
     const s = sim.current;
     if (!s || !pointsRef.current) return;
-    const dt = Math.min(dtRaw, 0.05); // clamp huge frames
+    const dt = Math.min(dtRaw, 0.05);
     s.t += dt;
 
     const pos = geometry.attributes.position.array;
     const age = geometry.attributes.aAge.array;
+    const typeArr = geometry.attributes.aType.array;
 
-    // Start a new eruption?
+    // ── CONSTANT FLARES — small bright surface explosions all over, all the
+    // time (MJ: "explosions constantly occur on the surface"). Poisson-ish:
+    // a few new flares per second at random surface points.
+    const flaresThisFrame = Math.random() < dt * 9.0 ? 1 : 0; // ~9/sec avg
+    for (let f = 0; f < flaresThisFrame + (Math.random() < 0.5 ? 1 : 0); f++) {
+      const dir = randDir();
+      const [tA, tB] = tangents(dir);
+      const cluster = 3 + Math.floor(Math.random() * 3); // small cluster per flare
+      for (let c = 0; c < cluster; c++) spawn(s, pos, age, typeArr, 0, dir, tA, tB);
+    }
+
+    // ── PERIODIC PLUMES — occasional eruption from one point, emits over a
+    // window to form a stream.
     if (s.t - s.lastBurst >= CME_BURST_PERIOD) {
       s.lastBurst = s.t;
-      // random surface direction
-      const u = Math.random() * 2 - 1;
-      const th = Math.random() * Math.PI * 2;
-      const rr = Math.sqrt(1 - u * u);
-      const origin = new THREE.Vector3(rr * Math.cos(th), u, rr * Math.sin(th));
-      // two tangents for lateral spread
-      const up = Math.abs(origin.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
-      const tA = new THREE.Vector3().crossVectors(up, origin).normalize();
-      const tB = new THREE.Vector3().crossVectors(origin, tA).normalize();
-      s.burst = { origin, tA, tB, until: s.t + CME_EMIT_WINDOW };
+      const dir = randDir();
+      const [tA, tB] = tangents(dir);
+      s.burst = { dir, tA, tB, until: s.t + CME_EMIT_WINDOW };
     }
-
-    // Emit particles while burst is active (stream, not ball)
     if (s.burst && s.t <= s.burst.until) {
-      const emitN = 6; // per frame during emission window
-      for (let k = 0; k < emitN; k++) {
-        const i = s.cursor;
-        s.cursor = (s.cursor + 1) % CME_MAX;
-        const { origin, tA, tB } = s.burst;
-        // spawn just above surface, tiny lateral jitter at the foot
-        const jitter = 0.06;
-        const fx = origin.x * SUN_SURFACE_R + (Math.random() - 0.5) * jitter * (tA.x + tB.x);
-        const fy = origin.y * SUN_SURFACE_R + (Math.random() - 0.5) * jitter * (tA.y + tB.y);
-        const fz = origin.z * SUN_SURFACE_R + (Math.random() - 0.5) * jitter * (tA.z + tB.z);
-        pos[i * 3] = fx; pos[i * 3 + 1] = fy; pos[i * 3 + 2] = fz;
-        // Two classes (MJ 2026-06-13): most particles are LOCAL EXPLOSIONS
-        // that barely escape the surface (he likes these as constant surface
-        // activity); ~30% are PLUMES that travel a tad further out. Same
-        // lifetime, so distance is driven purely by speed:
-        //   explosion: 0.14-0.30 × 4s ≈ 0.6-1.2 units (hugs surface)
-        //   plume:     0.62-0.92 × 4s ≈ 2.5-3.7 units (escapes, stays < orbits)
-        const isPlume = Math.random() > 0.68;
-        const speed = isPlume
-          ? 0.62 + Math.random() * 0.30
-          : 0.14 + Math.random() * 0.16;
-        const spread = 0.18;
-        const a = (Math.random() - 0.5) * spread;
-        const b = (Math.random() - 0.5) * spread;
-        const vx = (origin.x + tA.x * a + tB.x * b) * speed;
-        const vy = (origin.y + tA.y * a + tB.y * b) * speed;
-        const vz = (origin.z + tA.z * a + tB.z * b) * speed;
-        s.vel[i * 3] = vx; s.vel[i * 3 + 1] = vy; s.vel[i * 3 + 2] = vz;
-        s.born[i] = s.t;
-        s.alive[i] = 1;
-        age[i] = 0.0001;
-      }
+      for (let k = 0; k < 6; k++) spawn(s, pos, age, typeArr, 1, s.burst.dir, s.burst.tA, s.burst.tB);
     }
 
-    // Integrate
+    // ── ROTATION TRACKING — rotate all alive particles around the Y axis at
+    // the SAME apparent rate as the photosphere texture scroll, so eruptions
+    // stay anchored to the surface spot they came from (MJ ask 2026-06-13).
+    const { spinEpochMs, showRotation, slowRotation } = useStore.getState();
+    if (s.prevSpin === null) s.prevSpin = spinEpochMs;
+    let dSpinMs = showRotation ? (spinEpochMs - s.prevSpin) : 0;
+    if (slowRotation) dSpinMs *= 0.1;
+    s.prevSpin = spinEpochMs;
+    const dDays = dSpinMs / 86400000;
+    const dAngle = -2.0 * Math.PI * dDays / ROT_PERIOD_DAYS_CME;
+    const ca = Math.cos(dAngle), sa = Math.sin(dAngle);
+
+    // Integrate + rotate
     for (let i = 0; i < CME_MAX; i++) {
       if (!s.alive[i]) continue;
-      const a = (s.t - s.born[i]) / CME_LIFETIME;
+      const a = (s.t - s.born[i]) / s.life[i];
       if (a >= 1.0) { s.alive[i] = 0; age[i] = 1.0; continue; }
-      pos[i * 3] += s.vel[i * 3] * dt;
-      pos[i * 3 + 1] += s.vel[i * 3 + 1] * dt;
-      pos[i * 3 + 2] += s.vel[i * 3 + 2] * dt;
+      // radial travel
+      let x = pos[i * 3] + s.vel[i * 3] * dt;
+      let y = pos[i * 3 + 1] + s.vel[i * 3 + 1] * dt;
+      let z = pos[i * 3 + 2] + s.vel[i * 3 + 2] * dt;
+      // rotate around Y to track surface spin
+      if (dAngle !== 0) {
+        const nx = x * ca + z * sa;
+        const nz = -x * sa + z * ca;
+        x = nx; z = nz;
+        // also rotate the velocity vector so motion stays radial-from-spot
+        const vx = s.vel[i * 3], vz = s.vel[i * 3 + 2];
+        s.vel[i * 3] = vx * ca + vz * sa;
+        s.vel[i * 3 + 2] = -vx * sa + vz * ca;
+      }
+      pos[i * 3] = x; pos[i * 3 + 1] = y; pos[i * 3 + 2] = z;
       age[i] = a;
     }
 
     geometry.attributes.position.needsUpdate = true;
     geometry.attributes.aAge.needsUpdate = true;
+    geometry.attributes.aType.needsUpdate = true;
   });
 
   return <points ref={pointsRef} geometry={geometry} material={material} frustumCulled={false} />;
