@@ -381,7 +381,7 @@ function SunCMEParticles() {
           gl_Position = projectionMatrix * mv;
           // Flares (type 0): bigger, bloom outward fast → read as bright
           // surface flashes. Plumes (type 1): smaller, gentle growth.
-          float base = aType < 0.5 ? (3.5 + 4.0 * aSeed) : (1.6 + 2.6 * aSeed);
+          float base = aType < 0.5 ? (4.5 + 5.0 * aSeed) : (1.6 + 2.6 * aSeed);
           float grow = aType < 0.5 ? (1.0 + 2.2 * aAge) : (1.0 + 1.1 * aAge);
           gl_PointSize = base * grow * uPixelScale / max(0.001, -mv.z);
           if (aAge >= 1.0) gl_PointSize = 0.0;
@@ -404,10 +404,13 @@ function SunCMEParticles() {
             // — so: warmer, dimmer, softer-edged, much rarer (freq cut in JS).
             float life = vAge < 0.30 ? vAge / 0.30 : 1.0 - (vAge - 0.30) / 0.70;
             life = clamp(life, 0.0, 1.0);
-            float diffuse = pow(soft, 1.8);     // feathered, no hard disc edge
-            float alpha = diffuse * life * 0.30;
-            vec3 hot  = vec3(1.0, 0.68, 0.30);  // warm amber (was yellow-white)
-            vec3 cool = vec3(0.95, 0.38, 0.12); // → deep orange as it fades
+            float diffuse = pow(soft, 1.5);     // feathered but with a core
+            float alpha = diffuse * life * 0.55;
+            // Bright warm gold at peak so it actually reads against the
+            // surface, fading to orange. Middle ground between the invisible
+            // amber and the disco-ball yellow-white (MJ 2026-06-13).
+            vec3 hot  = vec3(1.0, 0.82, 0.42);  // bright warm gold
+            vec3 cool = vec3(0.98, 0.42, 0.13); // → orange as it fades
             vec3 col = mix(cool, hot, life);
             gl_FragColor = vec4(col * alpha, alpha);
           } else {
@@ -490,10 +493,10 @@ function SunCMEParticles() {
     // ── OCCASIONAL FLARES — soft surface brightenings, sparse. MJ called the
     // previous ~9/sec a disco ball; dropped to ~1.2/sec, single small cluster,
     // so a flare blooms here and there rather than strobing all over.
-    if (Math.random() < dt * 1.2) {
+    if (Math.random() < dt * 2.6) {
       const dir = randDir();
       const [tA, tB] = tangents(dir);
-      const cluster = 2 + Math.floor(Math.random() * 2); // 2-3 particles
+      const cluster = 2 + Math.floor(Math.random() * 3); // 2-4 particles
       for (let c = 0; c < cluster; c++) spawn(s, pos, age, typeArr, 0, dir, tA, tB);
     }
 
