@@ -397,15 +397,18 @@ function SunCMEParticles() {
           float soft = smoothstep(0.5, 0.0, r);
 
           if (vType < 0.5) {
-            // FLARE — bright surface flash. Quick bright rise, fast fade.
-            // Hot yellow-white core so it POPS against the orange surface
-            // (additive). These are the constant local surface explosions.
-            float life = vAge < 0.25 ? vAge / 0.25 : 1.0 - (vAge - 0.25) / 0.75;
+            // FLARE — a soft surface BRIGHTENING, not a pasted dot. Warm
+            // hot-orange (close to the surface palette so it blends instead
+            // of reading as a yellow sticker), diffuse falloff, modest alpha.
+            // MJ 2026-06-13: "looks like a disco ball / too obvious overlay"
+            // — so: warmer, dimmer, softer-edged, much rarer (freq cut in JS).
+            float life = vAge < 0.30 ? vAge / 0.30 : 1.0 - (vAge - 0.30) / 0.70;
             life = clamp(life, 0.0, 1.0);
-            float alpha = soft * life * 0.55;
-            vec3 hot  = vec3(1.0, 0.92, 0.55);  // bright yellow-white flash
-            vec3 cool = vec3(1.0, 0.45, 0.13);  // → orange as it fades
-            vec3 col = mix(cool, hot, life);    // brightest at peak life
+            float diffuse = pow(soft, 1.8);     // feathered, no hard disc edge
+            float alpha = diffuse * life * 0.30;
+            vec3 hot  = vec3(1.0, 0.68, 0.30);  // warm amber (was yellow-white)
+            vec3 cool = vec3(0.95, 0.38, 0.12); // → deep orange as it fades
+            vec3 col = mix(cool, hot, life);
             gl_FragColor = vec4(col * alpha, alpha);
           } else {
             // PLUME — dim warm orange stream, no white-hot kernel.
@@ -484,14 +487,13 @@ function SunCMEParticles() {
     const age = geometry.attributes.aAge.array;
     const typeArr = geometry.attributes.aType.array;
 
-    // ── CONSTANT FLARES — small bright surface explosions all over, all the
-    // time (MJ: "explosions constantly occur on the surface"). Poisson-ish:
-    // a few new flares per second at random surface points.
-    const flaresThisFrame = Math.random() < dt * 9.0 ? 1 : 0; // ~9/sec avg
-    for (let f = 0; f < flaresThisFrame + (Math.random() < 0.5 ? 1 : 0); f++) {
+    // ── OCCASIONAL FLARES — soft surface brightenings, sparse. MJ called the
+    // previous ~9/sec a disco ball; dropped to ~1.2/sec, single small cluster,
+    // so a flare blooms here and there rather than strobing all over.
+    if (Math.random() < dt * 1.2) {
       const dir = randDir();
       const [tA, tB] = tangents(dir);
-      const cluster = 3 + Math.floor(Math.random() * 3); // small cluster per flare
+      const cluster = 2 + Math.floor(Math.random() * 2); // 2-3 particles
       for (let c = 0; c < cluster; c++) spawn(s, pos, age, typeArr, 0, dir, tA, tB);
     }
 
@@ -516,7 +518,9 @@ function SunCMEParticles() {
     if (slowRotation) dSpinMs *= 0.1;
     s.prevSpin = spinEpochMs;
     const dDays = dSpinMs / 86400000;
-    const dAngle = -2.0 * Math.PI * dDays / ROT_PERIOD_DAYS_CME;
+    // +sign so particles track the SAME visual direction as the photosphere
+    // texture scroll (MJ 2026-06-13: they were drifting the opposite way).
+    const dAngle = 2.0 * Math.PI * dDays / ROT_PERIOD_DAYS_CME;
     const ca = Math.cos(dAngle), sa = Math.sin(dAngle);
 
     // Integrate + rotate
