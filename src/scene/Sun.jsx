@@ -273,10 +273,11 @@ const PHOTOSPHERE_FRAGMENT = /* glsl */ `
     float phase = field * 40.0;
     float flare = sin(uTimeDays * 6.2831 * 0.45 + phase) * 0.5 + 0.5;
     flare = pow(flare, 7.0);                            // brief sharp flashes
-    float region = smoothstep(0.70, 0.88, field) * flare * belt;
+    float region = smoothstep(0.68, 0.88, field) * flare * belt;
     // limb-darkening-aware: brighten less at the very edge so it reads as
-    // surface, not a rim sprite.
-    surf += region * vec3(1.0, 0.66, 0.30) * 0.85;
+    // surface, not a rim sprite. Nudged brighter per MJ (0.85 -> 1.20) —
+    // a touch more pop, still clearly "faint surface flares" not disco.
+    surf += region * vec3(1.0, 0.70, 0.33) * 1.20;
 
     gl_FragColor = vec4(surf, col.a);
   }
