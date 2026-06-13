@@ -14,12 +14,18 @@ import { useStore } from '../state/useStore.js';
 // than tiny bodies, and so Aaron picks up the vocabulary on sight.
 // Billboarded — always face the camera.
 //
-// Filter: only show when e ≥ 0.04. Mercury, Mars, Jupiter, Saturn,
-// Uranus, Pluto qualify; Venus / Earth / Neptune are too circular.
+// Filter: only skip TRULY circular orbits (e ≈ 0) where the peri/apo
+// DIRECTION is mathematically undefined. Every real planet has a nonzero
+// eccentricity (Venus, the most circular, is e≈0.0068), so all of them
+// show A/P. Previously this threshold was 0.04, which silently hid Venus,
+// Earth, and Neptune — MJ correctly flagged that as an inconsistency
+// (2026-06-13). The markers are well-defined at any nonzero e: perihelion
+// is just the orbit-orientation direction, independent of how elliptical
+// the orbit is.
 const PERI_COLOR = '#ff8c6e';
 const APO_COLOR  = '#78b4ff';
 const FONT_SIZE = 2.2;
-const MIN_E_FOR_DISPLAY = 0.04;
+const MIN_E_FOR_DISPLAY = 0.0005;
 const MS_PER_CENTURY = 36525 * 86400000;
 const J2000_MS = Date.UTC(2000, 0, 1, 12);
 
