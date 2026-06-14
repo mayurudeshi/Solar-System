@@ -26,3 +26,6 @@ tools/_*.png
 tools/after_*.png
 
 tools/*.png
+
+showcase/
+tools/_*.mjs
