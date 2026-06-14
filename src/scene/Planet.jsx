@@ -263,37 +263,41 @@ function makeGiantDetailTexture(kind) {
   ctx.clearRect(0, 0, 1024, 512); // transparent base — only features paint
 
   const isNeptune = kind === 'Neptune';
-  // ── Latitude bands ──────────────────────────────────────────────────
-  // Uranus is famously bland, but for visible rotation we need readable
-  // banding — pushed stronger than reality so the spin is discernible
-  // (honest-ish: Voyager 2 + Hubble DO show faint bands + a bright polar
-  // collar under contrast enhancement; we're just turning that up).
-  const bandCount = isNeptune ? 9 : 8;
-  for (let i = 0; i < bandCount; i++) {
-    const y = (i + 0.5) * (512 / bandCount);
-    const h = 512 / bandCount;
-    const dark = i % 2 === 0;
-    const a = isNeptune ? (dark ? 0.16 : 0.06) : (dark ? 0.16 : 0.07);
-    ctx.fillStyle = dark
-      ? (isNeptune ? `rgba(10, 20, 55, ${a})` : `rgba(120, 150, 165, ${a})`)
-      : (isNeptune ? `rgba(210, 230, 255, ${a})` : `rgba(225, 245, 250, ${a})`);
-    ctx.fillRect(0, y - h / 2, 1024, h);
+  // ── Latitude bands — NEPTUNE ONLY ───────────────────────────────────
+  // MJ 2026-06-14: bands on Uranus read as a "circus ball." Uranus keeps
+  // ONLY the white storm spot below — a single clean rotation marker that
+  // also shows off its sideways (north-south) spin. Bands stay in the
+  // generator for Neptune in case it's ever mounted.
+  if (isNeptune) {
+    const bandCount = 9;
+    for (let i = 0; i < bandCount; i++) {
+      const y = (i + 0.5) * (512 / bandCount);
+      const h = 512 / bandCount;
+      const dark = i % 2 === 0;
+      const a = dark ? 0.16 : 0.06;
+      ctx.fillStyle = dark ? `rgba(10, 20, 55, ${a})` : `rgba(210, 230, 255, ${a})`;
+      ctx.fillRect(0, y - h / 2, 1024, h);
+    }
   }
 
   // ── Great Dark Spot (Neptune) / faint storm (Uranus) ────────────────
   // Drawn as a soft dark ellipse at a characteristic mid-southern latitude.
   const spotX = isNeptune ? 360 : 620;
   const spotY = isNeptune ? 320 : 300;
-  const rx = isNeptune ? 95 : 55;
-  const ry = isNeptune ? 60 : 38;
+  const rx = isNeptune ? 95 : 70;
+  const ry = isNeptune ? 60 : 48;
   const grad = ctx.createRadialGradient(spotX, spotY, 4, spotX, spotY, rx);
   if (isNeptune) {
     grad.addColorStop(0, 'rgba(6, 12, 40, 0.85)');
     grad.addColorStop(0.7, 'rgba(8, 16, 48, 0.45)');
     grad.addColorStop(1, 'rgba(8, 16, 48, 0.0)');
   } else {
-    grad.addColorStop(0, 'rgba(235, 250, 252, 0.45)'); // Uranus storm: bright cloud
-    grad.addColorStop(1, 'rgba(235, 250, 252, 0.0)');
+    // Uranus is already pale, so a faint white cloud vanishes. Make it a
+    // BRIGHT, sharper white spot with a hot core so it's a clear trackable
+    // marker (MJ wants the white spot as the rotation indicator).
+    grad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+    grad.addColorStop(0.4, 'rgba(245, 252, 255, 0.55)');
+    grad.addColorStop(1, 'rgba(240, 250, 255, 0.0)');
   }
   ctx.save();
   ctx.translate(spotX, spotY); ctx.scale(1, ry / rx); ctx.translate(-spotX, -spotY);
