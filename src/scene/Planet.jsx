@@ -245,6 +245,109 @@ function EarthClouds({ planetRadius }) {
 }
 
 
+// Ice-giant atmospheric detail (v1.6.2). The stock Uranus texture is
+// near-featureless, so (a) you can't see it rotate and (b) it lacks the
+// banding + storms the real planet has. This draws a procedural RGBA
+// overlay — latitude bands + a storm — onto a sphere just outside the
+// planet, locked to the planet's exact rotation so it reads as surface
+// features and makes the spin obvious. Lit by the Sun's point light.
+//
+// ONLY Uranus uses this. Neptune's stock texture is fine (MJ 2026-06-14:
+// "Neptune is fine... it's Uranus"). Jupiter/Saturn have detailed real
+// textures already. The Neptune branch below is kept generic in case we
+// ever want it, but nothing mounts it.
+function makeGiantDetailTexture(kind) {
+  const c = document.createElement('canvas');
+  c.width = 1024; c.height = 512;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, 1024, 512); // transparent base — only features paint
+
+  const isNeptune = kind === 'Neptune';
+  // ── Latitude bands ──────────────────────────────────────────────────
+  // Uranus is famously bland, but for visible rotation we need readable
+  // banding — pushed stronger than reality so the spin is discernible
+  // (honest-ish: Voyager 2 + Hubble DO show faint bands + a bright polar
+  // collar under contrast enhancement; we're just turning that up).
+  const bandCount = isNeptune ? 9 : 8;
+  for (let i = 0; i < bandCount; i++) {
+    const y = (i + 0.5) * (512 / bandCount);
+    const h = 512 / bandCount;
+    const dark = i % 2 === 0;
+    const a = isNeptune ? (dark ? 0.16 : 0.06) : (dark ? 0.16 : 0.07);
+    ctx.fillStyle = dark
+      ? (isNeptune ? `rgba(10, 20, 55, ${a})` : `rgba(120, 150, 165, ${a})`)
+      : (isNeptune ? `rgba(210, 230, 255, ${a})` : `rgba(225, 245, 250, ${a})`);
+    ctx.fillRect(0, y - h / 2, 1024, h);
+  }
+
+  // ── Great Dark Spot (Neptune) / faint storm (Uranus) ────────────────
+  // Drawn as a soft dark ellipse at a characteristic mid-southern latitude.
+  const spotX = isNeptune ? 360 : 620;
+  const spotY = isNeptune ? 320 : 300;
+  const rx = isNeptune ? 95 : 55;
+  const ry = isNeptune ? 60 : 38;
+  const grad = ctx.createRadialGradient(spotX, spotY, 4, spotX, spotY, rx);
+  if (isNeptune) {
+    grad.addColorStop(0, 'rgba(6, 12, 40, 0.85)');
+    grad.addColorStop(0.7, 'rgba(8, 16, 48, 0.45)');
+    grad.addColorStop(1, 'rgba(8, 16, 48, 0.0)');
+  } else {
+    grad.addColorStop(0, 'rgba(235, 250, 252, 0.45)'); // Uranus storm: bright cloud
+    grad.addColorStop(1, 'rgba(235, 250, 252, 0.0)');
+  }
+  ctx.save();
+  ctx.translate(spotX, spotY); ctx.scale(1, ry / rx); ctx.translate(-spotX, -spotY);
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(spotX, spotY, rx, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  // ── Bright methane companion cloud (Neptune only) ───────────────────
+  if (isNeptune) {
+    const cg = ctx.createRadialGradient(spotX + 130, spotY + 36, 2, spotX + 130, spotY + 36, 46);
+    cg.addColorStop(0, 'rgba(245, 250, 255, 0.55)');
+    cg.addColorStop(1, 'rgba(245, 250, 255, 0.0)');
+    ctx.fillStyle = cg;
+    ctx.save();
+    ctx.translate(spotX + 130, spotY + 36); ctx.scale(1.8, 0.5); ctx.translate(-(spotX + 130), -(spotY + 36));
+    ctx.beginPath(); ctx.arc(spotX + 130, spotY + 36, 46, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+
+function IceGiantDetail({ name, planetRadius, rot }) {
+  const ref = useRef();
+  const tex = useMemo(() => makeGiantDetailTexture(name), [name]);
+
+  useFrame(() => {
+    if (!ref.current) return;
+    const { spinEpochMs, showRotation, slowRotation } = useStore.getState();
+    // Lock to the planet's EXACT rotation so the bands/spot read as surface.
+    ref.current.rotation.y = showRotation
+      ? spinAtEpoch(rot, spinEpochMs, slowRotation)
+      : 0;
+  });
+
+  return (
+    <mesh ref={ref}>
+      <sphereGeometry args={[planetRadius * 1.006, 64, 64]} />
+      <meshStandardMaterial
+        map={tex}
+        transparent
+        opacity={1.0}
+        roughness={0.9}
+        metalness={0.0}
+        depthWrite={false}
+      />
+    </mesh>
+  );
+}
+
+
 // Async-load a real texture; resolve to null on failure so the procedural
 // fallback persists.
 function useAsyncTexture(url) {
@@ -349,6 +452,9 @@ export function Planet({ name, body }) {
         )}
         {name === 'Earth' && (
           <EarthClouds planetRadius={radius} />
+        )}
+        {name === 'Uranus' && (
+          <IceGiantDetail name={name} planetRadius={radius} rot={body.rot} />
         )}
       </group>
       {visible && (
