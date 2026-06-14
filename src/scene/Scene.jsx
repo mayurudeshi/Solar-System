@@ -3,6 +3,7 @@ import { Sun } from './Sun.jsx';
 import { SunV15 } from './sun-v15/SunV15.jsx';
 import { Starfield } from './Starfield.jsx';
 import { MilkyWaySkybox } from './MilkyWaySkybox.jsx';
+import { ShootingStars } from './ShootingStars.jsx';
 import { Planet } from './Planet.jsx';
 import { OrbitPath } from './OrbitPath.jsx';
 import { ApsisMarkers } from './ApsisMarkers.jsx';
@@ -27,6 +28,7 @@ export function Scene() {
     >
       <ambientLight intensity={0.35} color="#404a5c" />
       <MilkyWaySkybox />
+      <ShootingStars />
       {sunV15 ? <SunV15 /> : <Sun />}
       <Starfield />
       {PLANET_NAMES.map((name) => (
