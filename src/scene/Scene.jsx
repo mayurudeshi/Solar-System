@@ -2,6 +2,7 @@ import { Canvas } from '@react-three/fiber';
 import { Sun } from './Sun.jsx';
 import { SunV15 } from './sun-v15/SunV15.jsx';
 import { Starfield } from './Starfield.jsx';
+import { MilkyWaySkybox } from './MilkyWaySkybox.jsx';
 import { Planet } from './Planet.jsx';
 import { OrbitPath } from './OrbitPath.jsx';
 import { ApsisMarkers } from './ApsisMarkers.jsx';
@@ -25,6 +26,7 @@ export function Scene() {
       style={{ position: 'fixed', inset: 0, background: '#03040a' }}
     >
       <ambientLight intensity={0.35} color="#404a5c" />
+      <MilkyWaySkybox />
       {sunV15 ? <SunV15 /> : <Sun />}
       <Starfield />
       {PLANET_NAMES.map((name) => (
