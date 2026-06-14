@@ -36,69 +36,32 @@ const GALACTIC_POLE = new THREE.Vector3(0.733, 0.5, -0.5).normalize();
 
 const VERT = /* glsl */ `
   varying vec2 vUv;
-  varying vec3 vLocal;
   void main() {
     vUv = uv;
-    vLocal = normalize(position);   // direction on the unit sphere
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
 
-// The galactic band lies along the sphere's local equator (y = 0). The
-// texture's star field is sampled in UV; the band glow is computed from
-// latitude so it's independent of the texture content.
+// NO procedural band. The uMap is a REAL all-sky photographic panorama
+// (Solar System Scope, CC-BY 4.0) that already contains the actual Milky Way
+// — star clouds, the Sagittarius core, dust rifts, the Magellanic Clouds.
+// It's just rendered very dark (true faint-night-sky levels). All we do is
+// EXPOSURE-tone-map it so the real structure reads dramatically, rolling off
+// the highlights so bright stars / the core never blow into a white wall.
+// 100% honest: it's a photo of our own sky, brightened.
 const FRAG = /* glsl */ `
   precision highp float;
   uniform sampler2D uMap;
   uniform float uOpacity;
+  uniform float uExposure;
   varying vec2 vUv;
-  varying vec3 vLocal;
-
-  float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453123); }
-  float noise(vec2 p){
-    vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f);
-    return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),
-               mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),u.x),u.y);
-  }
-  float fbm(vec2 p){ float v=0.0,a=0.5; for(int i=0;i<5;i++){v+=a*noise(p);p*=2.0;a*=0.5;} return v; }
 
   void main(){
-    // Re-normalize the interpolated direction PER PIXEL. Computing lat/lon
-    // from the raw varying (linearly interpolated across the sphere's big
-    // facets) kinked the band gradient at facet edges → faint quad panels.
-    vec3 dir = normalize(vLocal);
-    float lat = dir.y;                 // latitude off the galactic plane
-    float lon = atan(dir.z, dir.x);    // longitude
-
-    // Real star map. Crush the near-black regions to TRUE black first so the
-    // boost doesn't amplify the JPEG's dark-area compression blocks.
-    vec3 stars = max(texture2D(uMap, vUv).rgb - 0.045, 0.0) * 1.5;
-
-    // Band profile: a bright tight CORE riding inside a broad faint HALO,
-    // so even edge-on it reads as a structured belt rather than a flat wall.
-    float core = exp(-(lat*lat) / 0.006);   // tight bright spine
-    float halo = exp(-(lat*lat) / 0.060);   // broad faint glow
-    // Two-octave clumping: coarse patches + finer filaments break up the
-    // smooth "searchlight slab" so it reads as a textured galactic cloud.
-    float coarse = fbm(vec2(lon*2.4, lat*2.2) + 3.3);
-    float fine   = fbm(vec2(lon*6.5, lat*5.0) + 11.0);
-    float mott = 0.30 + 0.80 * coarse + 0.35 * fine;
-    float band = (core * 0.9 + halo * 0.55) * mott;
-    // A dark dust lane snaking down the middle (real Milky Way has one).
-    float dust = smoothstep(0.0, 0.012, abs(lat - 0.010*sin(lon*3.0) - 0.006));
-    band *= mix(0.32, 1.0, dust);
-
-    // Central bulge — brighter, warmer hotspot toward "galactic center"
-    // (an arbitrary but fixed longitude so it has a recognizable core).
-    float toCenter = cos(lon - 1.2); // peak near lon=1.2
-    float bulge = exp(-(lat*lat)/0.018) * pow(max(0.0,toCenter), 5.0);
-
-    vec3 bandCol = vec3(0.60, 0.64, 0.80);   // cool milky white
-    vec3 bulgeCol = vec3(0.97, 0.87, 0.64);  // warm core
-    vec3 glow = bandCol * band * 0.72 + bulgeCol * bulge * 1.25;
-
-    // Add the procedural glow on top of the (crushed) star field.
-    vec3 col = stars + glow;
+    vec3 raw = texture2D(uMap, vUv).rgb;
+    // Exponential exposure: lifts the faint nebulosity, soft-clips highlights.
+    vec3 col = vec3(1.0) - exp(-raw * uExposure);
+    // Gentle contrast to deepen the gaps between the star clouds.
+    col = pow(col, vec3(0.85));
     gl_FragColor = vec4(col * uOpacity, uOpacity);
   }
 `;
@@ -128,6 +91,7 @@ export function MilkyWaySkybox() {
   const uniforms = useMemo(() => ({
     uMap: { value: null },
     uOpacity: { value: 0 },
+    uExposure: { value: 14.0 },
   }), []);
 
   // World-fixed galactic orientation: aim local +Y at the galactic pole.
