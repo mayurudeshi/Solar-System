@@ -215,10 +215,42 @@ input[type='date'] {
 .body-name { color: var(--text); flex: 1; }
 .body-lock { color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
 
+/* ── on-screen pan pad (v1.6.1 — conflict-free panning) ──────────────── */
+
+.panpad {
+  position: fixed;
+  right: 18px;
+  bottom: 64px;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(3, 34px);
+  grid-template-rows: repeat(3, 34px);
+  gap: 3px;
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+.panpad:hover { opacity: 1; }
+.panpad-btn {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--panel); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px;
+  font-size: 13px; cursor: pointer; user-select: none;
+  -webkit-user-select: none; touch-action: none;
+}
+.panpad-btn:hover { background: var(--panel-hi); }
+.panpad-btn:active { background: var(--accent-bg); }
+.panpad-up     { grid-column: 2; grid-row: 1; }
+.panpad-left   { grid-column: 1; grid-row: 2; }
+.panpad-center { grid-column: 2; grid-row: 2; font-size: 15px; }
+.panpad-right  { grid-column: 3; grid-row: 2; }
+.panpad-down   { grid-column: 2; grid-row: 3; }
+
 /* ── responsive collapse: phones (≤640px) ────────────────────────────── */
 
 @media (max-width: 640px) {
   .hint { display: none; }
+  /* bigger touch targets + lift above the date readout on phones */
+  .panpad { grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 44px); bottom: 88px; opacity: 0.7; }
 
   /* Mobile bar: single row, HORIZONTAL SCROLL. Wrapping the bar's children
      to multiple rows eats 150+ px of viewport. Letting the row scroll

@@ -19,6 +19,9 @@ export function Scene() {
       camera={{ position: [0, 60, 95], fov: 50, near: 0.1, far: 5000 }}
       gl={{ antialias: true }}
       dpr={[1, 2]}
+      // Kill the right-click context menu over the canvas so right-drag pan
+      // doesn't pop the menu / trigger Vivaldi's back gesture (MJ 2026-06-14).
+      onContextMenu={(e) => e.preventDefault()}
       style={{ position: 'fixed', inset: 0, background: '#03040a' }}
     >
       <ambientLight intensity={0.35} color="#404a5c" />

@@ -6,6 +6,7 @@ import { VantageSelector } from './ui/VantageSelector.jsx';
 import { BodyVisibilityPanel } from './ui/BodyVisibilityPanel.jsx';
 import { DateScrubber } from './ui/DateScrubber.jsx';
 import { SimDateReadout } from './ui/SimDateReadout.jsx';
+import { PanPad } from './ui/PanPad.jsx';
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
       </header>
       <InfoPanel />
       <SimDateReadout />
+      <PanPad />
     </ErrorBoundary>
   );
 }

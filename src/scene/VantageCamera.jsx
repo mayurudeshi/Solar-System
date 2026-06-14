@@ -75,6 +75,36 @@ export function VantageCamera() {
           c.update();
           return true;
         };
+        // Screen-space pan (used by the on-screen PanPad). dx/dy in [-1,1];
+        // step scales with zoom distance so it feels consistent at any zoom.
+        window.__panView = (dx, dy) => {
+          const c = controlsRef.current;
+          if (!c) return;
+          const dist = camera.position.distanceTo(c.target);
+          const step = Math.max(0.15, dist * 0.06);
+          const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
+          const up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
+          const move = new THREE.Vector3()
+            .addScaledVector(right, dx * step)
+            .addScaledVector(up, dy * step);
+          camera.position.add(move);
+          c.target.add(move);
+          c.update();
+        };
+        // Re-center the current vantage body (undo any pan offset).
+        window.__recenter = () => {
+          const c = controlsRef.current;
+          if (!c) return;
+          const { vantage, epochMs, trueInclination } = useStore.getState();
+          if (vantage === 'free') return;
+          const newT = bodyWorldPos(vantage, epochMs, trueInclination, TMP);
+          if (!newT) return;
+          const offset = camera.position.clone().sub(c.target);
+          c.target.copy(newT);
+          camera.position.copy(newT).add(offset);
+          prevTarget.current.copy(newT);
+          c.update();
+        };
       }
     } catch (_) { /* no-op */ }
   }, [camera]);
@@ -124,6 +154,8 @@ export function VantageCamera() {
       enablePan
       screenSpacePanning   // pan in the screen plane — intuitive "scroll around"
       panSpeed={0.9}
+      keyEvents           // arrow keys pan (conflict-free vs Vivaldi gestures)
+      keyPanSpeed={18}
       minDistance={1.2}
       maxDistance={1600}
     />
