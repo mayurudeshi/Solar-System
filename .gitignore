@@ -24,3 +24,5 @@ dist-ssr
 *.sw?
 tools/_*.png
 tools/after_*.png
+
+tools/*.png
