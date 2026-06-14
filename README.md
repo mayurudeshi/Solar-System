@@ -74,6 +74,28 @@ Pluto's 17° tilt orient correctly relative to Neptune (and not just visibly
 
 ## Status
 
+**v1.6 — locked 2026-06-13. Visibility + camera control.**
+
+- **Per-planet visibility** — a Bodies panel with a checkbox per planet;
+  hiding one hides its mesh + orbit + apsis markers + moons as a unit.
+  Sun is hardwired on (locked row). "Show all" / "Only Sun" shortcuts for
+  isolating or comparing bodies ("Sun + Jupiter + Saturn + Neptune").
+- **Vantage dropdown** — single select, fixed the duplicate "Sun Sun"
+  (old segmented list did `['sun', ...BODY_NAMES]` and BODY_NAMES already
+  had Sun).
+- **Follow-cam** — tracks a body's motion and adds it to camera + target
+  instead of hard-snapping, so framing (zoom/pan/rotate) is preserved and
+  a fast body (Pluto at 100×) stays in frame.
+- **Panning** — on-screen PanPad (d-pad, press-and-hold, recenter) +
+  arrow keys + context-menu suppression, so "scroll around" a zoomed view
+  works without colliding with browser mouse gestures.
+- **Uranus** atmospheric white storm spot, locked to its 98°-tilted spin
+  so its sideways rotation is finally visible.
+- Edge cases: hide the ridden planet → vantage falls to Sun; pick a hidden
+  planet's vantage → it auto-shows.
+
+---
+
 **v1.5 — locked 2026-06-13. The Sun overhaul.** Built with a headless
 WebGL render harness (`tools/render_sun.mjs`) so shader changes could be
 seen + iterated directly instead of guessed blind.
