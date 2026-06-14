@@ -13,9 +13,9 @@ const TRAIL_RADIUS = 1500;        // sits in front of the star backdrop
 const TRAIL_POINTS = 12;          // head -> tail polyline
 const TRAIL_STEP = 0.009;         // angular spacing between trail points (rad)
 const SWEEP = 1.05;               // total arc the head travels (rad, ~60°)
-const VOID_GATE = 700;            // only when zoomed this far out
-const MIN_GAP = 9;                // seconds between streaks (min)
-const MAX_GAP = 26;               // seconds between streaks (max)
+const VOID_GATE = 360;            // fire once the galaxy is meaningfully visible
+const MIN_GAP = 5;                // seconds between streaks (min)
+const MAX_GAP = 14;               // seconds between streaks (max)
 const DUR_MIN = 0.7;              // streak lifetime (s)
 const DUR_MAX = 1.3;
 
