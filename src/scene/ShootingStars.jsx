@@ -12,14 +12,15 @@ import { useStore } from '../state/useStore.js';
 const TRAIL_RADIUS = 1500;        // sits in front of the star backdrop
 const TRAIL_POINTS = 16;          // head -> tail sprites
 const TRAIL_STEP = 0.0065;        // angular spacing between sprites (rad)
-const SWEEP = 1.05;               // total arc the head travels (rad, ~60°)
-const HEAD_SIZE = 26.0;           // head sprite size (px) — clearly visible
+const SWEEP = 0.7;                // total arc the head travels (rad) — slower, watchable
+const HEAD_SIZE = 28.0;           // head sprite size (px) — clearly visible
 const TAIL_SIZE = 2.0;
 const VOID_GATE = 360;            // fire once the galaxy is meaningfully visible
-const MIN_GAP = 5;                // seconds between streaks (min)
-const MAX_GAP = 13;               // seconds between streaks (max)
-const DUR_MIN = 0.7;              // streak lifetime (s)
-const DUR_MAX = 1.25;
+const MIN_GAP = 4;                // seconds between streaks (min)
+const MAX_GAP = 9;                // seconds between streaks (max)
+const DUR_MIN = 1.4;              // streak lifetime (s) — lingers, not blink-and-gone
+const DUR_MAX = 2.4;
+const VIEW_CONE = 0.62;           // spawn jitter around camera forward (keeps them on-screen)
 
 const TMP = new THREE.Vector3();
 const Q = new THREE.Quaternion();
@@ -99,8 +100,17 @@ export function ShootingStars() {
 
   function spawn() {
     const s = st.current;
-    const dir = new THREE.Vector3(rand(-1, 1), rand(-0.2, 1), rand(-1, 1));
-    if (dir.lengthSq() < 0.01) dir.set(0, 1, 0);
+    // Aim into the part of the sky the camera is actually looking at (forward
+    // + a cone of jitter), so streaks land on-screen instead of mostly behind
+    // the viewer. Random directions over the whole sphere = blink-and-miss.
+    const fwd = new THREE.Vector3();
+    camera.getWorldDirection(fwd);
+    const dir = fwd.clone().add(new THREE.Vector3(
+      rand(-VIEW_CONE, VIEW_CONE),
+      rand(-VIEW_CONE, VIEW_CONE),
+      rand(-VIEW_CONE, VIEW_CONE),
+    ));
+    if (dir.lengthSq() < 0.01) dir.copy(fwd);
     dir.normalize();
     const t = new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).normalize();
     const axis = new THREE.Vector3().crossVectors(dir, t).normalize();
