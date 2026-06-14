@@ -74,6 +74,38 @@ Pluto's 17° tilt orient correctly relative to Neptune (and not just visibly
 
 ## Status
 
+**v1.7 — locked 2026-06-14. The Milky Way (the deep-void backdrop).**
+
+Zoom out past the solar system and the real galaxy blooms in; zoom back and
+v1.6 stays perfectly pristine. The "inside vs outside" line is `cameraDist`:
+≤300 invisible (planet study + the ~110 full-system overview), fading
+300→1000, full galaxy out to the 1600 max-zoom.
+
+- **Real Milky Way, not a fake.** The backdrop is a genuine all-sky
+  photographic panorama (Solar System Scope, CC-BY 4.0) containing the actual
+  galaxy — star clouds, the Sagittarius core, dust rifts, both Magellanic
+  Clouds. We just exposure-tone-map it (`1 - exp(-raw * 14)`) so the real,
+  very-dark structure reads dramatically while highlights roll off (no blown
+  white wall). It's a band, not a face-on spiral — because we live *inside*
+  the disk, so that's the only honest way to see our own galaxy. Orbit the
+  void and it behaves like real sky: rich toward the plane, sparse toward the
+  galactic poles. (An earlier hand-painted procedural band was scrapped — it
+  read as a searchlight slab.)
+- **Subtle star twinkle.** A forgivable "lie" (space has no atmosphere to
+  scintillate), so it's restricted to compact bright stars; the diffuse band
+  stays steady (correct). Low amplitude, per-star phase.
+- **Occasional shooting stars.** Also a lie (meteors burn up in *Earth's*
+  atmosphere), kept honest-ish by being rare and ambient: a tapered trail of
+  additive point sprites (bright head → faint tail), spawned into the camera's
+  view cone so they actually land on-screen, ~one every 4–9s, void-only so the
+  planet view stays clean.
+- Implementation notes: drive shader uniforms via the **material ref** (R3F
+  clones the `uniforms` prop, so mutating it never reaches the GPU); render
+  custom line/points objects via `<primitive>` (R3F's `<line>` attaches
+  geometry/material unreliably).
+
+---
+
 **v1.6 — locked 2026-06-13. Visibility + camera control.**
 
 - **Per-planet visibility** — a Bodies panel with a checkbox per planet;
