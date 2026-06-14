@@ -63,24 +63,30 @@ const FRAG = /* glsl */ `
   float fbm(vec2 p){ float v=0.0,a=0.5; for(int i=0;i<5;i++){v+=a*noise(p);p*=2.0;a*=0.5;} return v; }
 
   void main(){
-    // Real star map.
-    vec3 stars = texture2D(uMap, vUv).rgb;
+    // Re-normalize the interpolated direction PER PIXEL. Computing lat/lon
+    // from the raw varying (linearly interpolated across the sphere's big
+    // facets) kinked the band gradient at facet edges → faint quad panels.
+    vec3 dir = normalize(vLocal);
+    float lat = dir.y;                 // latitude off the galactic plane
+    float lon = atan(dir.z, dir.x);    // longitude
 
-    // Latitude off the galactic plane (vLocal.y in [-1,1]).
-    float lat = vLocal.y;
-    // Longitude angle for patchy structure + a central-bulge hotspot.
-    float lon = atan(vLocal.z, vLocal.x);
+    // Real star map. Crush the near-black regions to TRUE black first so the
+    // boost doesn't amplify the JPEG's dark-area compression blocks.
+    vec3 stars = max(texture2D(uMap, vUv).rgb - 0.045, 0.0) * 1.5;
 
     // Band profile: a bright tight CORE riding inside a broad faint HALO,
     // so even edge-on it reads as a structured belt rather than a flat wall.
     float core = exp(-(lat*lat) / 0.006);   // tight bright spine
     float halo = exp(-(lat*lat) / 0.060);   // broad faint glow
-    // Patchy clumping along the band (low vertical freq = no vertical streaks).
-    float mott = 0.45 + 0.85 * fbm(vec2(lon*2.4, lat*2.2) + 3.3);
+    // Two-octave clumping: coarse patches + finer filaments break up the
+    // smooth "searchlight slab" so it reads as a textured galactic cloud.
+    float coarse = fbm(vec2(lon*2.4, lat*2.2) + 3.3);
+    float fine   = fbm(vec2(lon*6.5, lat*5.0) + 11.0);
+    float mott = 0.30 + 0.80 * coarse + 0.35 * fine;
     float band = (core * 0.9 + halo * 0.55) * mott;
     // A dark dust lane snaking down the middle (real Milky Way has one).
-    float dust = smoothstep(0.0, 0.010, abs(lat - 0.010*sin(lon*3.0) - 0.006));
-    band *= mix(0.35, 1.0, dust);
+    float dust = smoothstep(0.0, 0.012, abs(lat - 0.010*sin(lon*3.0) - 0.006));
+    band *= mix(0.32, 1.0, dust);
 
     // Central bulge — brighter, warmer hotspot toward "galactic center"
     // (an arbitrary but fixed longitude so it has a recognizable core).
@@ -89,10 +95,10 @@ const FRAG = /* glsl */ `
 
     vec3 bandCol = vec3(0.60, 0.64, 0.80);   // cool milky white
     vec3 bulgeCol = vec3(0.97, 0.87, 0.64);  // warm core
-    vec3 glow = bandCol * band * 0.78 + bulgeCol * bulge * 1.25;
+    vec3 glow = bandCol * band * 0.72 + bulgeCol * bulge * 1.25;
 
-    // Star map boosted a touch; add the procedural glow on top.
-    vec3 col = stars * 1.25 + glow;
+    // Add the procedural glow on top of the (crushed) star field.
+    vec3 col = stars + glow;
     gl_FragColor = vec4(col * uOpacity, uOpacity);
   }
 `;
@@ -150,7 +156,7 @@ export function MilkyWaySkybox() {
 
   return (
     <mesh ref={meshRef} quaternion={quat} renderOrder={-1000} frustumCulled={false}>
-      <sphereGeometry args={[SKY_RADIUS, 64, 64]} />
+      <sphereGeometry args={[SKY_RADIUS, 128, 128]} />
       <shaderMaterial
         ref={matRef}
         vertexShader={VERT}
