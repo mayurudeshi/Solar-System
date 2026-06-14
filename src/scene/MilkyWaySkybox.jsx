@@ -54,10 +54,26 @@ const FRAG = /* glsl */ `
   uniform sampler2D uMap;
   uniform float uOpacity;
   uniform float uExposure;
+  uniform float uTime;
   varying vec2 vUv;
+
+  float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)))*43758.5453); }
 
   void main(){
     vec3 raw = texture2D(uMap, vUv).rgb;
+
+    // Subtle twinkle — a forgivable "alive" cheat. Atmosphere-free space
+    // doesn't scintillate, so we restrict it to COMPACT BRIGHT stars only
+    // (the diffuse Milky Way band stays dead steady, which is correct) and
+    // keep the amplitude low + per-star phase/speed so it shimmers, never
+    // strobes like a marquee.
+    float luma = dot(raw, vec3(0.299, 0.587, 0.114));
+    float starMask = smoothstep(0.22, 0.55, luma);
+    float ph = hash(floor(vUv * vec2(4096.0, 2048.0))) * 6.2831853;
+    float spd = 1.6 + 1.4 * hash(floor(vUv * vec2(2048.0, 1024.0)) + 7.0);
+    float tw = 1.0 + 0.16 * starMask * sin(uTime * spd + ph);
+    raw *= tw;
+
     // Exponential exposure: lifts the faint nebulosity, soft-clips highlights.
     vec3 col = vec3(1.0) - exp(-raw * uExposure);
     // Gentle contrast to deepen the gaps between the star clouds.
@@ -92,6 +108,7 @@ export function MilkyWaySkybox() {
     uMap: { value: null },
     uOpacity: { value: 0 },
     uExposure: { value: 14.0 },
+    uTime: { value: 0 },
   }), []);
 
   // World-fixed galactic orientation: aim local +Y at the galactic pole.
@@ -101,10 +118,11 @@ export function MilkyWaySkybox() {
     return q;
   }, []);
 
-  useFrame(() => {
+  useFrame((state) => {
     const m = meshRef.current;
     const mat = matRef.current;
     if (!m || !mat) return;
+    mat.uniforms.uTime.value = state.clock.elapsedTime; // drives star twinkle
     m.quaternion.copy(quat);          // world-fixed galactic orientation
     m.position.copy(camera.position); // sit at infinity (follows camera)
     // Fade by how far we've pulled out from the focused body. Pristine v1.6
