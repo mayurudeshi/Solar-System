@@ -86,8 +86,12 @@ Pluto's 17° tilt orient correctly relative to Neptune (and not just visibly
   (rings near edge-on to the Sun after the 2025 plane-crossing) and broad
   around 2032 when the rings open. Works on mobile (shader, not post-processing).
   Render harness gained `DATE=YYYY-MM-DD` to drive orbital position for this.
-- **Still to come in v1.8.1:** planet's shadow cast on the far rings; Sun
-  god-rays (desktop); mobile-safe bloom.
+- **Planet shadow cast on the rings.** The complement: the ring disc is now a
+  custom shader that ray-tests each fragment against Saturn's sphere toward the
+  Sun and darkens the wedge the planet occludes (soft penumbra edge). So
+  Saturn's body throws its curved shadow across the rings — self-shadowing in
+  both directions. (LOD opacity crossfade preserved in-shader.)
+- **Still to come in v1.8.1:** Sun god-rays (desktop); mobile-safe bloom.
 
 ---
 

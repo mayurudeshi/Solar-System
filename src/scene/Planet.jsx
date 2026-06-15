@@ -64,11 +64,69 @@ const PARTICLE_COUNT = 4000;
 const FAR_THRESHOLD = 35;
 const NEAR_THRESHOLD = 10;
 
+// Ring disc shader — samples the ring strip AND receives the PLANET'S shadow:
+// for each ring fragment, ray-march toward the Sun (origin) and test whether
+// Saturn's sphere (uCenter, uRadius) blocks it. If so, darken — the planet's
+// curved shadow wedge falling across the rings. uOpacity carries the LOD
+// crossfade (disc → particle field) the old meshBasicMaterial used.
+const RING_VERT = /* glsl */ `
+  varying vec2 vUv;
+  varying vec3 vWorldPos;
+  void main() {
+    vUv = uv;
+    vec4 wp = modelMatrix * vec4(position, 1.0);
+    vWorldPos = wp.xyz;
+    gl_Position = projectionMatrix * viewMatrix * wp;
+  }
+`;
+const RING_FRAG = /* glsl */ `
+  precision highp float;
+  uniform sampler2D uRing;
+  uniform float uHasRing;
+  uniform vec3  uColor;
+  uniform float uOpacity;
+  uniform vec3  uCenter;   // planet centre (world)
+  uniform float uRadius;   // planet radius (world)
+  varying vec2 vUv;
+  varying vec3 vWorldPos;
+  void main() {
+    vec4 rs = uHasRing > 0.5 ? texture2D(uRing, vUv) : vec4(uColor, 1.0);
+    float a = (rs.a < 0.999 ? rs.a : 1.0) * uOpacity;
+    if (a < 0.02) discard;
+
+    // Planet shadow: does the ray from this fragment toward the Sun (origin)
+    // pass through Saturn's sphere? oc = P - C, L = toward Sun.
+    vec3 L = normalize(-vWorldPos);
+    vec3 oc = vWorldPos - uCenter;
+    float b = dot(oc, L);
+    float c = dot(oc, oc) - uRadius * uRadius;
+    float shadow = 0.0;
+    if (b < 0.0) {                       // planet is toward the Sun from here
+      float disc = b * b - c;
+      // Soft penumbra at the shadow edge.
+      shadow = smoothstep(-0.15, 0.15, disc) * 0.82;
+    }
+    vec3 col = rs.rgb * (1.0 - shadow);
+    gl_FragColor = vec4(col, a);
+    #include <colorspace_fragment>
+  }
+`;
+
 function SaturnRings({ planetRadius, ringTexture }) {
   const groupRef = useRef();
   const ringMeshRef = useRef();
+  const ringMatRef = useRef();
   const pointsRef = useRef();
   const { camera } = useThree();
+
+  const ringUniforms = useMemo(() => ({
+    uRing: { value: null },
+    uHasRing: { value: 0 },
+    uColor: { value: new THREE.Color('#e3c78a') },
+    uOpacity: { value: 0.9 },
+    uCenter: { value: new THREE.Vector3() },
+    uRadius: { value: planetRadius },
+  }), [planetRadius]);
 
   const INNER = planetRadius * 1.25;
   const OUTER = planetRadius * 2.30;
@@ -149,8 +207,14 @@ function SaturnRings({ planetRadius, ringTexture }) {
     // Crossfade only inside the [NEAR, FAR] window. Outside it, hard off.
     // Disc 0.9 → 0.05, particles 0 → 0.9. Also gate `visible` so the
     // particle points don't ghost-render with sizeAttenuation at distance.
-    if (ringMeshRef.current?.material) {
-      ringMeshRef.current.material.opacity = 0.9 * (1 - t);
+    if (ringMatRef.current) {
+      const u = ringMatRef.current.uniforms;
+      u.uOpacity.value = 0.9 * (1 - t);
+      u.uCenter.value.copy(tmpWorld.current); // planet centre (set above for LOD)
+      if (ringTexture && u.uRing.value !== ringTexture) {
+        u.uRing.value = ringTexture;
+        u.uHasRing.value = 1;
+      }
     }
     if (pointsRef.current) {
       pointsRef.current.visible = t > 0.001;
@@ -163,17 +227,16 @@ function SaturnRings({ planetRadius, ringTexture }) {
   return (
     <group ref={groupRef} rotation={[Math.PI / 2, 0, 0]}>
       <mesh ref={ringMeshRef} geometry={ringGeom}>
-        {/* depthWrite=true so the disc occludes the particles behind it
-            properly. The earlier depthWrite=false was creating layered
-            transparency artifacts at close zoom — the dark irregular
-            silhouette MJ flagged. */}
-        <meshBasicMaterial
-          map={ringTexture}
-          color={ringTexture ? '#ffffff' : '#e3c78a'}
+        {/* v1.8.1: custom shader so the rings receive Saturn's cast shadow.
+            DoubleSide; alpha + LOD opacity handled in-shader (discard for the
+            transparent gaps, replacing the old alphaTest). */}
+        <shaderMaterial
+          ref={ringMatRef}
+          vertexShader={RING_VERT}
+          fragmentShader={RING_FRAG}
+          uniforms={ringUniforms}
           side={THREE.DoubleSide}
           transparent
-          opacity={0.9}
-          alphaTest={ringTexture ? 0.05 : 0}
         />
       </mesh>
       <points ref={pointsRef} geometry={particleGeom}>
