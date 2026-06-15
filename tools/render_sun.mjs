@@ -28,7 +28,19 @@ const browser = await chromium.launch({
   ],
 });
 
-const page = await browser.newPage({ viewport: { width: 1600, height: 1200 }, deviceScaleFactor: 1 });
+// MOBILE=1 emulates an S24-class phone (Android UA, coarse pointer, high DPR)
+// to exercise the mobile render path. Note: headless uses ANGLE/SwiftShader,
+// not a real Adreno, so driver-specific GPU bugs may not reproduce — but it
+// DOES verify the mobile code path (e.g. PostFX skipping on mobile UA).
+const page = process.env.MOBILE === '1'
+  ? await browser.newPage({
+      viewport: { width: 412, height: 915 },
+      deviceScaleFactor: 3,
+      isMobile: true,
+      hasTouch: true,
+      userAgent: 'Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+    })
+  : await browser.newPage({ viewport: { width: 1600, height: 1200 }, deviceScaleFactor: 1 });
 
 // Capture console + errors so we can see WebGL failures.
 const logs = [];
