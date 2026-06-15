@@ -65,11 +65,12 @@ const glInfo = await page.evaluate(() => {
 // Set the Sun vantage via the exposed zustand store, let the camera lerp
 // converge, then set an exact zoom distance via the __setZoom hook.
 const enableV15 = process.env.SUN_V15 === '1';
-const drove = await page.evaluate(async ({ targetDist, enableV15 }) => {
+const vantage = process.env.VANTAGE || 'sun';
+const drove = await page.evaluate(async ({ targetDist, enableV15, vantage }) => {
   const result = { method: null, vantageSet: false, zoomSet: false, v15: false };
   const store = window.__solarStore;
   if (store) {
-    store.getState().setVantage('sun');
+    store.getState().setVantage(vantage);
     if (enableV15 && !store.getState().sunV15) { store.getState().toggleSunV15(); result.v15 = true; }
     // BODIES_ONLY="Earth,Jupiter" → show only those planets (v1.6 test)
     if (window.__bodiesOnly) {
@@ -89,7 +90,7 @@ const drove = await page.evaluate(async ({ targetDist, enableV15 }) => {
     if (sunBtn) { sunBtn.click(); result.vantageSet = true; result.method = 'ui-click'; }
   }
   return result;
-}, { targetDist: zoomDist, enableV15 });
+}, { targetDist: zoomDist, enableV15, vantage });
 
 // Optional: crank sim speed to accumulate time-dependent artifacts
 // (e.g. photosphere differential-rotation banding builds over sim-days).

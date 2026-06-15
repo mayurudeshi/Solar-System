@@ -1,0 +1,79 @@
+{
+  "$comment": "LOD-ladder texture manifest for the solar-system app. Each body->map entry has a levels[] array ordered low->high res. A level with a local 'file' is shipped in this repo; a level with only 'acquire' is a known higher-res source URL the future local/native build should fetch (not committed to the web deploy). type=srgb for color/night/clouds/ring, type=linear for normal/specular/displacement.",
+  "version": "1.8",
+  "generated": "2026-06-15",
+  "basePath": "/textures/",
+  "license": "See CREDITS.txt. Shipped files: Solar System Scope CC-BY 4.0; acquire-only sources also include USGS Astrogeology / NASA LRO (public domain).",
+  "entries": {
+    "earth": {
+      "night": {
+        "type": "srgb",
+        "levels": [
+          { "res": "2k", "file": "2k_earth_nightmap.jpg", "bytes": 255287, "source": "solarsystemscope" },
+          { "res": "8k", "acquire": "https://www.solarsystemscope.com/textures/download/8k_earth_nightmap.jpg", "source": "solarsystemscope" }
+        ]
+      },
+      "normal": {
+        "type": "linear",
+        "levels": [
+          { "res": "2k", "file": "2k_earth_normal.jpg", "bytes": 59186, "source": "solarsystemscope", "note": "transcoded from SSS 2k_earth_normal_map.tif to JPEG q92 for web shipping" },
+          { "res": "8k", "acquire": "https://www.solarsystemscope.com/textures/download/8k_earth_normal_map.tif", "source": "solarsystemscope", "note": "TIFF master; transcode for native build" }
+        ]
+      },
+      "specular": {
+        "type": "linear",
+        "levels": [
+          { "res": "2k", "file": "2k_earth_specular.jpg", "bytes": 216676, "source": "solarsystemscope", "note": "ocean/land mask; transcoded from SSS 2k_earth_specular_map.tif to JPEG q90" },
+          { "res": "8k", "acquire": "https://www.solarsystemscope.com/textures/download/8k_earth_specular_map.tif", "source": "solarsystemscope" }
+        ]
+      },
+      "clouds": {
+        "type": "srgb",
+        "alpha": false,
+        "levels": [
+          { "res": "2k", "file": "2k_earth_clouds.jpg", "bytes": 965676, "source": "solarsystemscope", "note": "already present in repo; identical to SSS 2k clouds. SSS clouds JPEG has no alpha channel; derive alpha from luminance in shader." },
+          { "res": "8k", "acquire": "https://www.solarsystemscope.com/textures/download/8k_earth_clouds.jpg", "source": "solarsystemscope" }
+        ]
+      },
+      "day": {
+        "type": "srgb",
+        "levels": [
+          { "res": "2k", "file": "2k_earth_daymap.jpg", "bytes": 463087, "source": "solarsystemscope", "note": "already present in repo" },
+          { "res": "8k", "acquire": "https://www.solarsystemscope.com/textures/download/8k_earth_daymap.jpg", "source": "solarsystemscope" }
+        ]
+      }
+    },
+    "saturn": {
+      "surface": {
+        "type": "srgb",
+        "levels": [
+          { "res": "2k", "file": "2k_saturn.jpg", "bytes": 199916, "source": "solarsystemscope", "note": "already present in repo; identical to SSS 2k saturn" },
+          { "res": "8k", "acquire": "https://www.solarsystemscope.com/textures/download/8k_saturn.jpg", "source": "solarsystemscope" }
+        ]
+      },
+      "ring": {
+        "type": "srgb",
+        "alpha": true,
+        "levels": [
+          { "res": "2k", "file": "2k_saturn_ring_alpha.png", "bytes": 12119, "source": "solarsystemscope", "note": "already present in repo; SSS ring color+alpha strip (PNG with alpha)" },
+          { "res": "8k", "acquire": "https://www.solarsystemscope.com/textures/download/8k_saturn_ring_alpha.png", "source": "solarsystemscope" }
+        ]
+      }
+    },
+    "moon": {
+      "color": {
+        "type": "srgb",
+        "levels": [
+          { "res": "2k", "file": "moons/2k_luna.jpg", "bytes": 1053869, "source": "solarsystemscope", "note": "already present in repo; identical to SSS 2k_moon.jpg" },
+          { "res": "8k", "acquire": "https://www.solarsystemscope.com/textures/download/8k_moon.jpg", "source": "solarsystemscope" }
+        ]
+      },
+      "displacement": {
+        "type": "linear",
+        "levels": [
+          { "acquire": "https://planetarymaps.usgs.gov/mosaic/Lunar_LRO_LOLA_Global_LDEM_118m_Mar2014.tif", "source": "usgs_lro_lola", "note": "USGS Astrogeology LRO LOLA Global LDEM 118m (Mar 2014), ~8 GB 16-bit GeoTIFF, public domain. NOT shipped. Bake to a tangent-space normal map or low-res displacement (e.g. 2k_moon_normal.jpg / 2k_moon_disp.png) offline before use; pixel values are height in meters with scale=0.5." }
+        ]
+      }
+    }
+  }
+}

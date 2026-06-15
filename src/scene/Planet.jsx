@@ -9,6 +9,7 @@ import {
   DEG,
 } from '../lib/orbital.js';
 import { useStore } from '../state/useStore.js';
+import { EarthSurface, EarthAtmosphere } from './Earth.jsx';
 
 // Procedural fallback. Stays as the FIRST RENDER while the real CC-BY 4.0
 // texture is fetched in the background, so the planet appears immediately
@@ -441,21 +442,31 @@ export function Planet({ name, body }) {
   return (
     <group ref={orbitGroupRef} visible={visible}>
       <group ref={tiltGroupRef} rotation={[0, 0, body.axial * DEG]}>
-        <mesh ref={spinMeshRef}>
-          <sphereGeometry args={[radius, 48, 48]} />
-          <meshStandardMaterial
-            map={texture}
-            roughness={0.85}
-            metalness={0.0}
-            emissive={hovered ? new THREE.Color(body.color) : new THREE.Color(0, 0, 0)}
-            emissiveIntensity={hovered ? 0.15 : 0}
-          />
-        </mesh>
+        {name === 'Earth' ? (
+          // v1.8: Earth gets a custom day/night-terminator shader (city
+          // lights, ocean glint, normal relief). It carries the spin ref so
+          // the shared rotation useFrame drives it like any other planet.
+          <EarthSurface radius={radius} spinRef={spinMeshRef} />
+        ) : (
+          <mesh ref={spinMeshRef}>
+            <sphereGeometry args={[radius, 48, 48]} />
+            <meshStandardMaterial
+              map={texture}
+              roughness={0.85}
+              metalness={0.0}
+              emissive={hovered ? new THREE.Color(body.color) : new THREE.Color(0, 0, 0)}
+              emissiveIntensity={hovered ? 0.15 : 0}
+            />
+          </mesh>
+        )}
         {name === 'Saturn' && (
           <SaturnRings planetRadius={radius} ringTexture={ringTexture} />
         )}
         {name === 'Earth' && (
-          <EarthClouds planetRadius={radius} />
+          <>
+            <EarthClouds planetRadius={radius} />
+            <EarthAtmosphere radius={radius} />
+          </>
         )}
         {name === 'Uranus' && (
           <IceGiantDetail name={name} planetRadius={radius} rot={body.rot} />

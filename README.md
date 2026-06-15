@@ -74,6 +74,40 @@ Pluto's 17° tilt orient correctly relative to Neptune (and not just visibly
 
 ## Status
 
+**v1.8 — 2026-06-15. Planet fidelity + post-processing.**
+
+The worlds catch up to the sky. Earth gets a real custom shader; the Sun and
+bright limbs finally glow; the Moon shows crater relief.
+
+- **Earth day/night terminator + city lights.** A dedicated `Earth.jsx`
+  shader (the Sun is a point at the origin, so sun direction = `normalize(-worldPos)`):
+  the lit day map cross-blends into the night-lights map across a soft
+  terminator, so cities glow on the dark side. Plus ocean **specular sun-glint**
+  (specular map) and surface **normal relief** (derivative-based TBN, no
+  precomputed tangents). Replaces the generic `meshStandardMaterial` for Earth only.
+- **Atmospheric rim.** A back-side Fresnel shell in sky-blue, brightest on the
+  sun-facing limb, additively blended — reads as scattered air, not a shell.
+  Pairs with bloom for the soft glow.
+- **Bloom (`PostFX.jsx`).** `@react-three/postprocessing` EffectComposer with a
+  high luminance threshold (0.62) so only genuinely bright pixels — the Sun,
+  sun-glint, the rim — bloom; lit planet surfaces and the Milky Way band stay
+  crisp. v1.7's pristine look is protected.
+- **Moon crater relief.** Luna uses its albedo as a bump map (no DEM needed at
+  this scale) so the terminator catches shadow on the craters.
+- **Texture foundation (forward-looking).** New `src/lib/textures/` — a
+  manifest-driven, progressive-resolution loader with a swappable asset resolver
+  (web now → local-disk/native later) and VRAM-safe disposal, plus
+  `public/textures/textures.manifest.json`. Structured so 8K–16K KTX2 from local
+  disk (the planned Tauri+WebGPU build) is an asset/config swap, not a rewrite.
+  v1.8 still ships textures at 2K; the loader is the runway.
+- New textures: Earth night/normal/specular (Solar System Scope, CC-BY 4.0 —
+  see `public/textures/CREDITS.txt`).
+- **Deferred to v1.8.1:** Saturn ring self-shadowing (ring shadow band on the
+  planet + planet shadow on the rings) and Sun god-rays — both need heavier
+  shader work; the existing v1.5 disc→particle rings stay for now.
+
+---
+
 **v1.7 — locked 2026-06-14. The Milky Way (the deep-void backdrop).**
 
 Zoom out past the solar system and the real galaxy blooms in; zoom back and

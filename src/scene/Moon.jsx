@@ -207,8 +207,13 @@ export function Moon({ name, moon, parent }) {
         <meshStandardMaterial
           key={texture ? 'with-tex' : 'no-tex'}
           map={texture}
+          // v1.8: derive crater relief from the albedo (no DEM needed at this
+          // scale) so the terminator catches real shadow on Luna's craters.
+          // Luna only — colorful/volcanic moons (Io) look wrong bumped by hue.
+          bumpMap={name === 'Luna' ? texture : null}
+          bumpScale={name === 'Luna' ? 0.035 : 0}
           color={texture ? '#ffffff' : moon.color}
-          roughness={0.9}
+          roughness={0.95}
           metalness={0.0}
           emissive={hovered ? new THREE.Color(moon.color) : new THREE.Color(0, 0, 0)}
           emissiveIntensity={hovered ? 0.2 : 0}

@@ -10,6 +10,7 @@ import { ApsisMarkers } from './ApsisMarkers.jsx';
 import { Moon } from './Moon.jsx';
 import { SimClock } from './SimClock.jsx';
 import { VantageCamera } from './VantageCamera.jsx';
+import { PostFX } from './PostFX.jsx';
 import { BODIES, PLANET_NAMES } from '../data/bodies.js';
 import { MOONS, MOON_NAMES } from '../data/moons.js';
 import { useStore } from '../state/useStore.js';
@@ -50,6 +51,7 @@ export function Scene() {
       ))}
       <SimClock />
       <VantageCamera />
+      <PostFX />
     </Canvas>
   );
 }

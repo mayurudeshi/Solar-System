@@ -1,0 +1,46 @@
+TEXTURE CREDITS & ATTRIBUTION
+=============================
+solar-system app (v1.8) — public/textures/
+
+All shipped textures are redistributable (CC-BY 4.0 or public domain).
+No PlanetPixelEmporium or paid/commercial-pack assets are used.
+
+
+1. Solar System Scope — https://www.solarsystemscope.com/textures/
+   License: Creative Commons Attribution 4.0 International (CC-BY 4.0)
+   https://creativecommons.org/licenses/by/4.0/
+   "Textures created by Solar System Scope, distributed under CC-BY 4.0."
+
+   Files acquired/transcoded from this source in this commit:
+     2k_earth_nightmap.jpg   (Earth night lights / Black Marble style)
+     2k_earth_normal.jpg     (Earth normal map; transcoded from SSS 2k_earth_normal_map.tif)
+     2k_earth_specular.jpg   (Earth specular / ocean mask; transcoded from SSS 2k_earth_specular_map.tif)
+
+   Files already in the repo that also originate from this source:
+     2k_earth_daymap.jpg, 2k_earth_clouds.jpg,
+     2k_saturn.jpg, 2k_saturn_ring_alpha.png,
+     moons/2k_luna.jpg (= SSS 2k_moon.jpg),
+     and the other planet/moon color maps.
+
+   Higher-res (8K) masters for the above are recorded as "acquire" URLs in
+   textures.manifest.json for the future local/native build.
+
+
+2. USGS Astrogeology Science Center / NASA LRO LOLA — public domain
+   Product: Moon LRO LOLA Global LDEM 118m (Mar 2014)
+   Catalog: https://astrogeology.usgs.gov/search/map/moon_lro_lola_dem_118m
+   GeoTIFF: https://planetarymaps.usgs.gov/mosaic/Lunar_LRO_LOLA_Global_LDEM_118m_Mar2014.tif
+   Created by the LOLA Science Team, NASA Goddard Space Flight Center;
+   published by USGS Astrogeology Science Center.
+   Use constraint: public domain — "Please cite authors."
+
+   NOT shipped (8 GB master). Recorded as an "acquire" entry under
+   moon.displacement in textures.manifest.json. Bake offline to a
+   tangent-space normal or low-res displacement map before use.
+
+
+3. NASA / NASA Goddard Space Flight Center SVS — public domain
+   https://svs.gsfc.nasa.gov/  |  https://visibleearth.nasa.gov/
+   Listed as an acceptable public-domain fallback source. No files were
+   pulled directly from NASA in this commit (SSS night-lights texture is
+   itself derived from NASA Black Marble data and is used under CC-BY 4.0).
