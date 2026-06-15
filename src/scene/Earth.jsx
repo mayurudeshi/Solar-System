@@ -98,8 +98,10 @@ const EARTH_FRAG = /* glsl */ `
     // Day side: ambient fill + diffuse. Night side: emissive city lights,
     // only where it's actually dark, boosted so they read against black.
     vec3 dayShaded = dayCol * (0.06 + 0.94 * lambert);
-    float nightMask = 1.0 - dayAmt;
-    vec3 lights = nightCol * uNightBoost * nightMask;
+    // Night hemisphere = glowing cities (boosted) + a faint moonlit hint of
+    // the land underneath (so the dark side reads as Earth, not a black hole;
+    // oceans stay near-black, which is correct).
+    vec3 nightSide = nightCol * uNightBoost + dayCol * 0.03;
 
     // Ocean specular glint — only on water (spec map), only day side.
     float spec = 0.0;
@@ -110,7 +112,7 @@ const EARTH_FRAG = /* glsl */ `
     }
     vec3 specCol = vec3(1.0, 0.95, 0.82) * spec * 0.9;
 
-    vec3 color = mix(lights, dayShaded, dayAmt) + specCol;
+    vec3 color = mix(nightSide, dayShaded, dayAmt) + specCol;
     gl_FragColor = vec4(color, 1.0);
     #include <colorspace_fragment>
   }
@@ -132,7 +134,7 @@ export function EarthSurface({ radius, spinRef }) {
     uCamPos: { value: new THREE.Vector3() },
     uHasNormal: { value: 0 },
     uHasSpec: { value: 0 },
-    uNightBoost: { value: 1.35 },
+    uNightBoost: { value: 2.6 },
   }), []);
 
   useFrame((state) => {
