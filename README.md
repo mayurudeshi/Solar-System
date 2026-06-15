@@ -74,6 +74,23 @@ Pluto's 17° tilt orient correctly relative to Neptune (and not just visibly
 
 ## Status
 
+**v1.8.1 — 2026-06-15 (in progress). Saturn ring shadows + more.**
+
+- **Ring shadow cast on the planet.** A custom Saturn surface shader
+  (`Saturn.jsx`) traces, per lit fragment, a ray toward the Sun and finds
+  where it crosses the ring plane; if that crossing is inside the ring annulus
+  it darkens the fragment by the ring's opacity at that radius — so the
+  **Cassini Division shows as a bright gap in the shadow band**. Pure analytic
+  shadow (no shadow maps), world-space, reads the ring-plane normal from the
+  planet's own world matrix. Astronomically honest: the band is thin in 2026
+  (rings near edge-on to the Sun after the 2025 plane-crossing) and broad
+  around 2032 when the rings open. Works on mobile (shader, not post-processing).
+  Render harness gained `DATE=YYYY-MM-DD` to drive orbital position for this.
+- **Still to come in v1.8.1:** planet's shadow cast on the far rings; Sun
+  god-rays (desktop); mobile-safe bloom.
+
+---
+
 **v1.8 — 2026-06-15. Planet fidelity + post-processing.**
 
 The worlds catch up to the sky. Earth gets a real custom shader; the Sun and

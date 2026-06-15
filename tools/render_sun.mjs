@@ -54,6 +54,10 @@ const bodiesOnly = process.env.BODIES_ONLY ? process.env.BODIES_ONLY.split(',') 
 if (bodiesOnly) {
   await page.evaluate((list) => { window.__bodiesOnly = list; }, bodiesOnly);
 }
+if (process.env.DATE) {
+  const ms = new Date(process.env.DATE).getTime();
+  await page.evaluate((m) => { window.__dateMs = m; }, ms);
+}
 
 // Wait for the R3F canvas to exist.
 await page.waitForSelector('canvas', { timeout: 15000 });
@@ -83,6 +87,10 @@ const drove = await page.evaluate(async ({ targetDist, enableV15, vantage }) => 
   const store = window.__solarStore;
   if (store) {
     store.getState().setVantage(vantage);
+    // DATE=YYYY-MM-DD drives orbital position (e.g. Saturn ring tilt to Sun).
+    if (window.__dateMs && store.getState().setEpochMs) {
+      store.getState().setEpochMs(window.__dateMs);
+    }
     if (enableV15 && !store.getState().sunV15) { store.getState().toggleSunV15(); result.v15 = true; }
     // BODIES_ONLY="Earth,Jupiter" → show only those planets (v1.6 test)
     if (window.__bodiesOnly) {

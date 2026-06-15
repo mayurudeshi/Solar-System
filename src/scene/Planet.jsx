@@ -10,6 +10,7 @@ import {
 } from '../lib/orbital.js';
 import { useStore } from '../state/useStore.js';
 import { EarthSurface, EarthAtmosphere } from './Earth.jsx';
+import { SaturnSurface } from './Saturn.jsx';
 
 // Procedural fallback. Stays as the FIRST RENDER while the real CC-BY 4.0
 // texture is fetched in the background, so the planet appears immediately
@@ -447,6 +448,15 @@ export function Planet({ name, body }) {
           // lights, ocean glint, normal relief). It carries the spin ref so
           // the shared rotation useFrame drives it like any other planet.
           <EarthSurface radius={radius} spinRef={spinMeshRef} />
+        ) : name === 'Saturn' ? (
+          // v1.8.1: Saturn gets a custom shader that casts the rings' shadow
+          // onto the planet (analytic ring-plane projection, Cassini gap and all).
+          <SaturnSurface
+            radius={radius}
+            spinRef={spinMeshRef}
+            mapUrl={body.textureUrl}
+            ringUrl={body.ringTextureUrl}
+          />
         ) : (
           <mesh ref={spinMeshRef}>
             <sphereGeometry args={[radius, 48, 48]} />
