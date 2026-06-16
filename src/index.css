@@ -197,6 +197,16 @@ input[type='date'] {
 }
 .vantage-select option { background: var(--panel); color: var(--text); }
 
+/* Vantage custom dropdown — relative wrapper anchors the drawer under the
+   pill; option rows are buttons reusing .body-row but reset to look native. */
+.vantage-dd { position: relative; display: inline-flex; }
+.vantage-option {
+  width: 100%; background: transparent; border: none;
+  color: var(--text); text-align: left; font: inherit;
+}
+.vantage-option.selected .body-name { color: var(--accent); }
+.vantage-check { margin-left: auto; color: var(--accent); font-size: 12px; }
+
 /* ── per-planet visibility panel (v1.6) ──────────────────────────────── */
 
 .bodies { position: relative; display: inline-flex; align-items: center; }
@@ -219,7 +229,7 @@ input[type='date'] {
   opacity: 0;
   transform: translateY(-10px) scaleY(0.6);
   pointer-events: none;
-  transition: opacity 0.26s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 2s ease, transform 2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .bodies-panel.open {
   opacity: 1;
