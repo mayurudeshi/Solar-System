@@ -4,6 +4,7 @@ import { ControlBar } from './ui/ControlBar.jsx';
 import { InfoPanel } from './ui/InfoPanel.jsx';
 import { VantageSelector } from './ui/VantageSelector.jsx';
 import { BodyVisibilityPanel } from './ui/BodyVisibilityPanel.jsx';
+import { SettingsPanel } from './ui/SettingsPanel.jsx';
 import { DateScrubber } from './ui/DateScrubber.jsx';
 import { SimDateReadout } from './ui/SimDateReadout.jsx';
 import { PanPad } from './ui/PanPad.jsx';
@@ -16,6 +17,7 @@ export default function App() {
         <ControlBar />
         <VantageSelector />
         <BodyVisibilityPanel />
+        <SettingsPanel />
         <DateScrubber />
       </header>
       <InfoPanel />

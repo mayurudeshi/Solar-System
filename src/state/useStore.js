@@ -51,6 +51,21 @@ export const useStore = create((set) => ({
   sunV15: false,
   toggleSunV15: () => set((s) => ({ sunV15: !s.sunV15 })),
 
+  // ── Live-tunable config (the "magic numbers" we hand-tuned, exposed in the
+  // Settings ⚙ drawer). Components read these each frame and feed their
+  // uniforms, so dragging a slider updates the scene live. Extensible: add a
+  // key here + a slider in SettingsPanel + read it in the relevant component.
+  config: {
+    sunActivity: 0.55,      // 0..1 — higher = more/denser surface flares
+    flareBrightness: 1.20,  // 0..3 — flare pop intensity
+    coronaScale: 30,        // 12..60 — Sun corona sprite size
+    menuAnimMs: 2000,       // 0..3000 — Bodies/Vantage drawer slide duration
+  },
+  setConfig: (key, value) =>
+    set((s) => ({ config: { ...s.config, [key]: value } })),
+  resetConfig: () =>
+    set({ config: { sunActivity: 0.55, flareBrightness: 1.20, coronaScale: 30, menuAnimMs: 2000 } }),
+
   // Sets BOTH epoch sources — user-visible date jump, resyncs spin to orbit.
   setEpochMs: (epochMs) => set({ epochMs, spinEpochMs: epochMs }),
 

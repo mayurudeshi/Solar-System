@@ -199,6 +199,8 @@ const PHOTOSPHERE_FRAGMENT = /* glsl */ `
   uniform float uFlareTime;  // REAL wall-clock seconds — flares fire regardless
                              // of rotation/pause/speed (active regions are
                              // magnetic, independent of the Sun's spin)
+  uniform float uFlareThreshold; // lower = more active regions qualify
+  uniform float uFlareBright;    // flare pop intensity
   uniform vec3 uTint;
   varying vec2 vUv;
 
@@ -284,11 +286,11 @@ const PHOTOSPHERE_FRAGMENT = /* glsl */ `
     float phase = field * 40.0;
     float flare = sin(uFlareTime * 6.2831 * 0.45 + phase) * 0.5 + 0.5;
     flare = pow(flare, 7.0);                            // brief sharp flashes
-    float region = smoothstep(0.63, 0.83, field) * flare * belt;
+    float region = smoothstep(uFlareThreshold, uFlareThreshold + 0.20, field) * flare * belt;
     // limb-darkening-aware: brighten less at the very edge so it reads as
     // surface, not a rim sprite. Nudged brighter per MJ (0.85 -> 1.20) —
     // a touch more pop, still clearly "faint surface flares" not disco.
-    surf += region * vec3(1.0, 0.70, 0.33) * 1.20;
+    surf += region * vec3(1.0, 0.70, 0.33) * uFlareBright;
 
     gl_FragColor = vec4(surf, col.a);
   }
@@ -316,6 +318,8 @@ function Photosphere({ texture, hovered, eventHandlers }) {
       uMap: { value: texture },
       uTimeDays: { value: 0 },
       uFlareTime: { value: 0 },
+      uFlareThreshold: { value: 0.63 },
+      uFlareBright: { value: 1.2 },
       uTint: { value: new THREE.Color(1, 1, 1) },
     }),
     [] // create once; we re-bind uMap below if texture changes
@@ -333,6 +337,11 @@ function Photosphere({ texture, hovered, eventHandlers }) {
     matRef.current.uniforms.uTimeDays.value = deltaMs / 86400000;
     // Flares advance on real wall-clock time, always (pause/speed-independent).
     matRef.current.uniforms.uFlareTime.value += dt;
+    // Live-tunable from the Settings drawer: activity 0..1 maps to threshold
+    // (higher activity = lower threshold = more regions qualify).
+    const cfg = useStore.getState().config;
+    matRef.current.uniforms.uFlareThreshold.value = 0.85 - (cfg.sunActivity ?? 0.55) * 0.40;
+    matRef.current.uniforms.uFlareBright.value = cfg.flareBrightness ?? 1.2;
     matRef.current.uniforms.uTint.value.set(hovered ? '#fff0e0' : '#ffffff');
   });
 
@@ -620,6 +629,7 @@ function SunProminences() {
 }
 
 function SunCorona() {
+  const coronaScale = useStore((s) => s.config.coronaScale);
   // SINGLE smooth-ramp sprite — replaces the previous two-layer stack
   // that created visible "Saturn-ring" bands and a dark gap in between.
   // No alpha jumps; every adjacent gradient stop is within ~0.1 alpha of
@@ -645,7 +655,7 @@ function SunCorona() {
   );
 
   return (
-    <sprite scale={[30, 30, 1]}>
+    <sprite scale={[coronaScale, coronaScale, 1]}>
       <spriteMaterial
         map={glowTex}
         transparent
