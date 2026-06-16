@@ -19,7 +19,7 @@ export const useStore = create((set) => ({
   epochMs: Date.now(),
   spinEpochMs: Date.now(),
   speed: 1.0,
-  paused: false,
+  paused: true,           // start frozen on today; hit Play to animate or pick any date
 
   vantage: 'sun',
   selected: null,
@@ -54,11 +54,13 @@ export const useStore = create((set) => ({
   // Sets BOTH epoch sources — user-visible date jump, resyncs spin to orbit.
   setEpochMs: (epochMs) => set({ epochMs, spinEpochMs: epochMs }),
 
-  // Internal — used by SimClock per-frame. When paused, only spin advances.
+  // Internal — used by SimClock per-frame. Paused = TRUE freeze frame: both
+  // orbital position AND rotation hold, so a paused view (incl. the start
+  // state and any date you punch in) is a clean static snapshot to study.
   tickSim: (deltaMs, paused) =>
     set((s) =>
       paused
-        ? { spinEpochMs: s.spinEpochMs + deltaMs }
+        ? {}
         : { epochMs: s.epochMs + deltaMs, spinEpochMs: s.spinEpochMs + deltaMs }
     ),
 
