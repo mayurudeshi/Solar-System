@@ -127,7 +127,9 @@ export function ShootingStars() {
     if (!grp) return;
     grp.position.copy(camera.position);          // sit at infinity
 
-    const dist = useStore.getState().cameraDist;
+    const stState = useStore.getState();
+    const dist = stState.cameraDist;
+    const rate = stState.config.shootingStars; // ⚙ frequency (0 = off)
     const inVoid = dist > VOID_GATE;
     const s = st.current;
     const dt = Math.min(delta, 0.05);
@@ -136,7 +138,7 @@ export function ShootingStars() {
       pts.visible = false;
       s.timer -= dt;
       if (s.timer <= 0) {
-        if (inVoid) spawn();
+        if (inVoid && rate > 0.001) spawn();
         else s.timer = 1;
       }
       return;
@@ -146,7 +148,7 @@ export function ShootingStars() {
     const p = s.age / s.dur;
     if (p >= 1 || !inVoid) {
       s.active = false;
-      s.timer = rand(MIN_GAP, MAX_GAP);
+      s.timer = rand(MIN_GAP, MAX_GAP) / Math.max(rate, 0.05); // ⚙ frequency
       pts.visible = false;
       return;
     }

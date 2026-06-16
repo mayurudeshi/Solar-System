@@ -22,6 +22,14 @@ const SECTIONS = [
   { title: '🌑 Moon', rows: [
     { key: 'moonCrater',      label: 'Crater depth',     min: 0,  max: 0.1, step: 0.005, fmt: (v) => v.toFixed(3) },
   ]},
+  { title: '🪐 Saturn', rows: [
+    { key: 'ringShadow',      label: 'Ring shadows',     min: 0,  max: 1,   step: 0.02, fmt: (v) => v.toFixed(2) },
+  ]},
+  { title: '🌌 Sky', rows: [
+    { key: 'milkyWay',        label: 'Milky Way',        min: 4,  max: 30,  step: 0.5,  fmt: (v) => v.toFixed(1) },
+    { key: 'twinkle',         label: 'Star twinkle',     min: 0,  max: 0.5, step: 0.01, fmt: (v) => v.toFixed(2) },
+    { key: 'shootingStars',   label: 'Shooting stars',   min: 0,  max: 3,   step: 0.1,  fmt: (v) => v.toFixed(1) },
+  ]},
   { title: '⚙ General', rows: [
     { key: 'ambient',         label: 'Ambient light',    min: 0,  max: 1,    step: 0.02, fmt: (v) => v.toFixed(2) },
     { key: 'menuAnimMs',      label: 'Menu animation',   min: 0,  max: 3000, step: 50,   fmt: (v) => `${Math.round(v)}ms` },

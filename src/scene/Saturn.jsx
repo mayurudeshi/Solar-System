@@ -17,6 +17,7 @@
 import { useRef, useMemo, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { useStore } from '../state/useStore.js';
 
 function useTex(url, { srgb }) {
   const [tex, setTex] = useState(null);
@@ -57,6 +58,7 @@ const SAT_FRAG = /* glsl */ `
   uniform vec3  uAxis;       // ring-plane normal = spin axis (world, normalized)
   uniform float uInner;      // ring inner radius (world units)
   uniform float uOuter;      // ring outer radius (world units)
+  uniform float uRingShadow; // shadow darkness (⚙ Settings)
   varying vec2 vUv;
   varying vec3 vWorldPos;
   varying vec3 vWorldNormal;
@@ -82,7 +84,7 @@ const SAT_FRAG = /* glsl */ `
             // luminance if the texture has no alpha channel).
             vec4 rs = texture2D(uRing, vec2(f, 0.5));
             float opacity = rs.a < 0.999 ? rs.a : max(max(rs.r, rs.g), rs.b);
-            shadow = clamp(opacity, 0.0, 1.0) * 0.8;       // 0.8 = darkest band
+            shadow = clamp(opacity, 0.0, 1.0) * uRingShadow;
           }
         }
       }
@@ -108,6 +110,7 @@ export function SaturnSurface({ radius, spinRef, mapUrl, ringUrl }) {
     uAxis: { value: new THREE.Vector3(0, 1, 0) },
     uInner: { value: radius * 1.25 },
     uOuter: { value: radius * 2.30 },
+    uRingShadow: { value: 0.8 },
   }), [radius]);
 
   // Let the shared Planet spin useFrame drive rotation: expose the mesh via
@@ -131,6 +134,7 @@ export function SaturnSurface({ radius, spinRef, mapUrl, ringUrl }) {
     const e = mesh.matrixWorld.elements;
     mat.uniforms.uCenter.value.set(e[12], e[13], e[14]);
     mat.uniforms.uAxis.value.set(e[4], e[5], e[6]).normalize();
+    mat.uniforms.uRingShadow.value = useStore.getState().config.ringShadow;
   });
 
   if (!map) return null;

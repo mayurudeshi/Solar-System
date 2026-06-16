@@ -19,6 +19,12 @@ const DEFAULT_CONFIG = {
   cloudOpacity: 1.0,      // 0..1   cloud layer opacity
   // Moon
   moonCrater: 0.035,      // 0..0.1 Luna crater relief (bump scale)
+  // Saturn
+  ringShadow: 0.80,       // 0..1   ring/planet mutual shadow darkness
+  // Sky
+  milkyWay: 14.0,         // 4..30  Milky Way exposure/brightness
+  twinkle: 0.16,          // 0..0.5 star twinkle amplitude
+  shootingStars: 1.0,     // 0..3   shooting-star frequency (0 = off)
   // General
   ambient: 0.35,          // 0..1   ambient fill light
   menuAnimMs: 2000,       // 0..3000 dropdown drawer slide duration

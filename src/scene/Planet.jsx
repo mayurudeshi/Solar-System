@@ -87,6 +87,7 @@ const RING_FRAG = /* glsl */ `
   uniform float uOpacity;
   uniform vec3  uCenter;   // planet centre (world)
   uniform float uRadius;   // planet radius (world)
+  uniform float uRingShadow; // shadow darkness (⚙ Settings)
   varying vec2 vUv;
   varying vec3 vWorldPos;
   void main() {
@@ -104,7 +105,7 @@ const RING_FRAG = /* glsl */ `
     if (b < 0.0) {                       // planet is toward the Sun from here
       float disc = b * b - c;
       // Soft penumbra at the shadow edge.
-      shadow = smoothstep(-0.15, 0.15, disc) * 0.82;
+      shadow = smoothstep(-0.15, 0.15, disc) * uRingShadow;
     }
     vec3 col = rs.rgb * (1.0 - shadow);
     gl_FragColor = vec4(col, a);
@@ -126,6 +127,7 @@ function SaturnRings({ planetRadius, ringTexture }) {
     uOpacity: { value: 0.9 },
     uCenter: { value: new THREE.Vector3() },
     uRadius: { value: planetRadius },
+    uRingShadow: { value: 0.8 },
   }), [planetRadius]);
 
   const INNER = planetRadius * 1.25;
@@ -211,6 +213,7 @@ function SaturnRings({ planetRadius, ringTexture }) {
       const u = ringMatRef.current.uniforms;
       u.uOpacity.value = 0.9 * (1 - t);
       u.uCenter.value.copy(tmpWorld.current); // planet centre (set above for LOD)
+      u.uRingShadow.value = useStore.getState().config.ringShadow;
       if (ringTexture && u.uRing.value !== ringTexture) {
         u.uRing.value = ringTexture;
         u.uHasRing.value = 1;
