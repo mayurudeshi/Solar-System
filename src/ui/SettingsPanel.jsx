@@ -87,7 +87,7 @@ export function SettingsPanel() {
     <div className="settings" ref={ref}>
       <button
         className="bodies-toggle"
-        onClick={() => setOpen((o) => !o)}
+        onPointerUp={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="dialog"
         title="Tune the simulation"

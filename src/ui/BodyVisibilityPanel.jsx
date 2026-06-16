@@ -32,7 +32,7 @@ export function BodyVisibilityPanel() {
     <div className="bodies" ref={ref}>
       <button
         className="bodies-toggle"
-        onClick={() => setOpen((o) => !o)}
+        onPointerUp={() => setOpen((o) => !o)}
         aria-expanded={open}
         title="Show/hide individual planets"
       >

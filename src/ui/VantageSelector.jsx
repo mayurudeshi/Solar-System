@@ -30,7 +30,7 @@ export function VantageSelector() {
       <div className="vantage-dd" ref={ref}>
         <button
           className="bodies-toggle"
-          onClick={() => setOpen((o) => !o)}
+          onPointerUp={() => setOpen((o) => !o)}
           aria-expanded={open}
           aria-haspopup="listbox"
           title="Camera vantage point"
