@@ -199,6 +199,21 @@ input[type='date'] {
   border-radius: 8px;
   padding: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  /* Sliding-drawer open/close: unfurls down from the top bar. Always mounted
+     so it can animate; closed state is invisible + non-interactive. */
+  transform-origin: top center;
+  opacity: 0;
+  transform: translateY(-8px) scaleY(0.96);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.bodies-panel.open {
+  opacity: 1;
+  transform: translateY(0) scaleY(1);
+  pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bodies-panel { transition: none; }
 }
 .bodies-actions { display: flex; gap: 6px; margin-bottom: 6px; }
 .bodies-actions .btn-sm { flex: 1; text-align: center; }

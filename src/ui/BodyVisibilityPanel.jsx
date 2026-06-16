@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../state/useStore.js';
 import { BODIES, PLANET_NAMES } from '../data/bodies.js';
 
@@ -8,6 +8,7 @@ import { BODIES, PLANET_NAMES } from '../data/bodies.js';
 // locked row) — it's the hero, never hideable.
 export function BodyVisibilityPanel() {
   const [open, setOpen] = useState(false);
+  const ref = useRef(null);
   const bodyVisible   = useStore((s) => s.bodyVisible);
   const toggleBody    = useStore((s) => s.toggleBody);
   const showOnlySun   = useStore((s) => s.showOnlySun);
@@ -15,8 +16,23 @@ export function BodyVisibilityPanel() {
 
   const shownCount = PLANET_NAMES.filter((n) => bodyVisible[n]).length;
 
+  // Close when clicking/tapping anywhere outside the panel (the toggle button
+  // lives inside `ref`, so it still toggles normally).
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('touchstart', onDown);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('touchstart', onDown);
+    };
+  }, [open]);
+
   return (
-    <div className="bodies">
+    <div className="bodies" ref={ref}>
       <button
         className="btn bodies-toggle"
         onClick={() => setOpen((o) => !o)}
@@ -26,8 +42,12 @@ export function BodyVisibilityPanel() {
         Bodies <span className="bodies-count">{shownCount}/{PLANET_NAMES.length}</span> {open ? '▾' : '▸'}
       </button>
 
-      {open && (
-        <div className="bodies-panel" role="group" aria-label="Planet visibility">
+      <div
+        className={'bodies-panel' + (open ? ' open' : '')}
+        role="group"
+        aria-label="Planet visibility"
+        aria-hidden={!open}
+      >
           <div className="bodies-actions">
             <button className="btn-sm" onClick={showAllBodies}>Show all</button>
             <button className="btn-sm" onClick={showOnlySun}>Only Sun</button>
@@ -52,8 +72,7 @@ export function BodyVisibilityPanel() {
               <span className="body-name">{name}</span>
             </label>
           ))}
-        </div>
-      )}
+      </div>
     </div>
   );
 }
