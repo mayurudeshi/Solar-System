@@ -271,15 +271,20 @@ const PHOTOSPHERE_FRAGMENT = /* glsl */ `
     // curvature, and never read as pasted dots. Latitude-weighted toward the
     // activity belts (~±35°) like the real Sun.
     float belt = exp(-pow((vUv.y - 0.5) * 3.4, 2.0)); // brightest mid-latitudes
-    float field = fbmP(sampleUv * vec2(7.0, 4.5) + vec2(3.1, 8.7));
-    // each candidate region flashes briefly on its own phase. Driven by REAL
-    // time (uFlareTime), not rotation — so flares keep popping even when the
-    // sim is paused or rotation is off. The active-region LOCATIONS still use
-    // the rotating sampleUv, so they sit on the surface and turn with it.
+    // Active-region field: sampled in the rotating sampleUv space (regions sit
+    // on the surface + turn with it) PLUS a slow REAL-TIME drift so the set of
+    // active regions emerges and migrates over time even when the sim is paused.
+    // Without the drift, a frozen Sun shows only the one/two spots that happen
+    // to exceed the threshold, pulsing in place (MJ: "only one spot bottom-left").
+    vec2 fieldUv = sampleUv * vec2(7.0, 4.5) + vec2(3.1, 8.7)
+                 + vec2(uFlareTime * 0.040, uFlareTime * 0.028);
+    float field = fbmP(fieldUv);
+    // each region flashes briefly on its own phase — all on REAL time so they
+    // pop regardless of rotation/pause/speed, scattered across the whole disc.
     float phase = field * 40.0;
     float flare = sin(uFlareTime * 6.2831 * 0.45 + phase) * 0.5 + 0.5;
     flare = pow(flare, 7.0);                            // brief sharp flashes
-    float region = smoothstep(0.68, 0.88, field) * flare * belt;
+    float region = smoothstep(0.63, 0.83, field) * flare * belt;
     // limb-darkening-aware: brighten less at the very edge so it reads as
     // surface, not a rim sprite. Nudged brighter per MJ (0.85 -> 1.20) —
     // a touch more pop, still clearly "faint surface flares" not disco.
