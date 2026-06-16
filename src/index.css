@@ -176,10 +176,24 @@ input[type='date'] {
 
 /* ── vantage dropdown (v1.6 — single select, no duplicate Sun) ────────── */
 
-.vantage-select {
-  background: transparent; color: var(--text);
+/* Unified top-bar control pills — the Vantage <select> and the Bodies toggle
+   render identically: same box, same custom caret (the native select arrow is
+   replaced so both match), same hover. */
+.vantage-select,
+.bodies-toggle {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  background-color: transparent; color: var(--text);
   border: 1px solid var(--border); border-radius: 6px;
-  padding: 4px 8px; font-size: 12px; font-family: var(--sans);
+  padding: 5px 26px 5px 9px; font-size: 12px; font-family: var(--sans);
+  line-height: 1.25; cursor: pointer; white-space: nowrap;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.5L5 6.5L8 3.5' fill='none' stroke='%238fa0b5' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  transition: background-color .12s ease, border-color .12s ease;
+}
+.vantage-select:hover,
+.bodies-toggle:hover {
+  background-color: var(--panel-hi); border-color: var(--border-hi);
 }
 .vantage-select option { background: var(--panel); color: var(--text); }
 
@@ -203,9 +217,9 @@ input[type='date'] {
      so it can animate; closed state is invisible + non-interactive. */
   transform-origin: top center;
   opacity: 0;
-  transform: translateY(-8px) scaleY(0.96);
+  transform: translateY(-10px) scaleY(0.6);
   pointer-events: none;
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition: opacity 0.26s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .bodies-panel.open {
   opacity: 1;

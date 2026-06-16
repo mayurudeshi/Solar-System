@@ -34,12 +34,12 @@ export function BodyVisibilityPanel() {
   return (
     <div className="bodies" ref={ref}>
       <button
-        className="btn bodies-toggle"
+        className="bodies-toggle"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         title="Show/hide individual planets"
       >
-        Bodies <span className="bodies-count">{shownCount}/{PLANET_NAMES.length}</span> {open ? '▾' : '▸'}
+        Bodies <span className="bodies-count">{shownCount}/{PLANET_NAMES.length}</span>
       </button>
 
       <div
