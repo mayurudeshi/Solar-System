@@ -28,14 +28,17 @@ const IS_MOBILE =
 
 export function PostFX() {
   if (IS_MOBILE) return null;
+  // v1.8.1 fix: dropped `multisampling={4}` + `mipmapBlur` — that combo
+  // blacked out the whole scene at the wide/default zoom on Intel ANGLE
+  // (multisampled float target + mipmap gen failing). Plain kernel bloom
+  // with no MSAA on the composer renders correctly at every zoom.
   return (
-    <EffectComposer multisampling={4}>
+    <EffectComposer multisampling={0}>
       <Bloom
-        intensity={0.85}
-        luminanceThreshold={0.62}
-        luminanceSmoothing={0.22}
-        mipmapBlur
-        radius={0.72}
+        intensity={0.5}
+        luminanceThreshold={0.72}
+        luminanceSmoothing={0.18}
+        radius={0.5}
       />
     </EffectComposer>
   );
