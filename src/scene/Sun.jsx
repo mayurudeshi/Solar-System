@@ -195,7 +195,10 @@ const PHOTOSPHERE_VERTEX = /* glsl */ `
 
 const PHOTOSPHERE_FRAGMENT = /* glsl */ `
   uniform sampler2D uMap;
-  uniform float uTimeDays;
+  uniform float uTimeDays;   // sim/rotation time (days) — freezes when paused
+  uniform float uFlareTime;  // REAL wall-clock seconds — flares fire regardless
+                             // of rotation/pause/speed (active regions are
+                             // magnetic, independent of the Sun's spin)
   uniform vec3 uTint;
   varying vec2 vUv;
 
@@ -269,9 +272,12 @@ const PHOTOSPHERE_FRAGMENT = /* glsl */ `
     // activity belts (~±35°) like the real Sun.
     float belt = exp(-pow((vUv.y - 0.5) * 3.4, 2.0)); // brightest mid-latitudes
     float field = fbmP(sampleUv * vec2(7.0, 4.5) + vec2(3.1, 8.7));
-    // each candidate region flashes briefly on its own phase
+    // each candidate region flashes briefly on its own phase. Driven by REAL
+    // time (uFlareTime), not rotation — so flares keep popping even when the
+    // sim is paused or rotation is off. The active-region LOCATIONS still use
+    // the rotating sampleUv, so they sit on the surface and turn with it.
     float phase = field * 40.0;
-    float flare = sin(uTimeDays * 6.2831 * 0.45 + phase) * 0.5 + 0.5;
+    float flare = sin(uFlareTime * 6.2831 * 0.45 + phase) * 0.5 + 0.5;
     flare = pow(flare, 7.0);                            // brief sharp flashes
     float region = smoothstep(0.68, 0.88, field) * flare * belt;
     // limb-darkening-aware: brighten less at the very edge so it reads as
@@ -304,6 +310,7 @@ function Photosphere({ texture, hovered, eventHandlers }) {
     () => ({
       uMap: { value: texture },
       uTimeDays: { value: 0 },
+      uFlareTime: { value: 0 },
       uTint: { value: new THREE.Color(1, 1, 1) },
     }),
     [] // create once; we re-bind uMap below if texture changes
@@ -313,12 +320,14 @@ function Photosphere({ texture, hovered, eventHandlers }) {
     uniforms.uMap.value = texture;
   }, [texture, uniforms]);
 
-  useFrame(() => {
+  useFrame((_, dt) => {
     if (!matRef.current) return;
     const { spinEpochMs, showRotation, slowRotation } = useStore.getState();
     let deltaMs = showRotation ? spinEpochMs - refMs : 0;
     if (slowRotation) deltaMs *= 0.1;
     matRef.current.uniforms.uTimeDays.value = deltaMs / 86400000;
+    // Flares advance on real wall-clock time, always (pause/speed-independent).
+    matRef.current.uniforms.uFlareTime.value += dt;
     matRef.current.uniforms.uTint.value.set(hovered ? '#fff0e0' : '#ffffff');
   });
 
