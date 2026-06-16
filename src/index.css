@@ -183,6 +183,10 @@ input[type='date'] {
 .bodies-toggle {
   appearance: none; -webkit-appearance: none; -moz-appearance: none;
   touch-action: manipulation; /* kill mobile tap-delay / double-tap-zoom on the toggles */
+  /* Android (Vivaldi) was treating the label text as selectable, so a tap
+     started text-selection instead of firing the click — the toggle would
+     highlight but never open. Mark it non-selectable so taps register. */
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
   background-color: transparent; color: var(--text);
   border: 1px solid var(--border); border-radius: 6px;
   padding: 5px 26px 5px 9px; font-size: 12px; font-family: var(--sans);
