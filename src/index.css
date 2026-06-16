@@ -209,14 +209,26 @@ input[type='date'] {
 
 /* ⚙ Settings drawer — reuses the bodies-panel drawer; adds slider rows. */
 .settings { position: relative; display: inline-flex; }
-.settings-panel { min-width: 240px; max-height: 72vh; overflow-y: auto; }
-.setting-section + .setting-section { margin-top: 6px; }
+.settings-panel { min-width: 470px; max-height: 78vh; overflow-y: auto; }
+/* Two columns, 3 sections each — the "stack of 3 and 3" dashboard. */
+.settings-grid { display: flex; gap: 20px; }
+.settings-col { flex: 1; min-width: 205px; }
+.setting-section + .setting-section { margin-top: 4px; }
 .setting-section-title {
-  font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase;
-  color: var(--text-dim); margin: 8px 4px 2px;
-  border-top: 1px solid var(--border); padding-top: 8px;
+  display: flex; align-items: center; gap: 8px;
+  color: var(--text); margin: 10px 4px 4px;
+  border-top: 1px solid var(--border); padding-top: 10px;
 }
-.setting-section:first-child .setting-section-title { border-top: none; padding-top: 2px; }
+.sec-icon { font-size: 20px; line-height: 1; }
+.sec-name { font-size: 15px; font-weight: 700; letter-spacing: 0.02em; }
+.settings-col .setting-section:first-child .setting-section-title {
+  border-top: none; padding-top: 2px;
+}
+/* Single-column fallback on narrow viewports (phones) */
+@media (max-width: 560px) {
+  .settings-panel { min-width: 240px; }
+  .settings-grid { flex-direction: column; gap: 0; }
+}
 .setting-row { display: flex; flex-direction: column; gap: 5px; padding: 8px 4px; }
 .setting-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; }
 .setting-name { color: var(--text); }
