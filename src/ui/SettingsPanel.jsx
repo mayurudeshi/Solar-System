@@ -8,11 +8,24 @@ import { useStore } from '../state/useStore.js';
 //
 // To add a knob: add a key to `config` in useStore, add a row here, and read
 // it where it matters. That's the whole contract.
-const SLIDERS = [
-  { key: 'sunActivity',     label: 'Sun activity',      min: 0,  max: 1,    step: 0.01, fmt: (v) => v.toFixed(2) },
-  { key: 'flareBrightness', label: 'Flare brightness',  min: 0,  max: 3,    step: 0.05, fmt: (v) => v.toFixed(2) },
-  { key: 'coronaScale',     label: 'Corona size',       min: 12, max: 60,   step: 1,    fmt: (v) => `${Math.round(v)}` },
-  { key: 'menuAnimMs',      label: 'Menu animation',    min: 0,  max: 3000, step: 50,   fmt: (v) => `${Math.round(v)}ms` },
+const SECTIONS = [
+  { title: '☀ Sun', rows: [
+    { key: 'sunActivity',     label: 'Activity',         min: 0,  max: 1,  step: 0.01, fmt: (v) => v.toFixed(2) },
+    { key: 'flareBrightness', label: 'Flare brightness', min: 0,  max: 3,  step: 0.05, fmt: (v) => v.toFixed(2) },
+    { key: 'coronaScale',     label: 'Corona size',      min: 12, max: 60, step: 1,    fmt: (v) => `${Math.round(v)}` },
+  ]},
+  { title: '🌍 Earth', rows: [
+    { key: 'earthAtmosphere', label: 'Atmosphere glow',  min: 0,  max: 3,  step: 0.05, fmt: (v) => v.toFixed(2) },
+    { key: 'cityLights',      label: 'City lights',      min: 0,  max: 6,  step: 0.1,  fmt: (v) => v.toFixed(1) },
+    { key: 'cloudOpacity',    label: 'Cloud opacity',    min: 0,  max: 1,  step: 0.05, fmt: (v) => v.toFixed(2) },
+  ]},
+  { title: '🌑 Moon', rows: [
+    { key: 'moonCrater',      label: 'Crater depth',     min: 0,  max: 0.1, step: 0.005, fmt: (v) => v.toFixed(3) },
+  ]},
+  { title: '⚙ General', rows: [
+    { key: 'ambient',         label: 'Ambient light',    min: 0,  max: 1,    step: 0.02, fmt: (v) => v.toFixed(2) },
+    { key: 'menuAnimMs',      label: 'Menu animation',   min: 0,  max: 3000, step: 50,   fmt: (v) => `${Math.round(v)}ms` },
+  ]},
 ];
 
 export function SettingsPanel() {
@@ -59,19 +72,24 @@ export function SettingsPanel() {
         aria-label="Settings"
         aria-hidden={!open}
       >
-        {SLIDERS.map((s) => (
-          <label key={s.key} className="setting-row">
-            <span className="setting-head">
-              <span className="setting-name">{s.label}</span>
-              <span className="setting-val">{s.fmt(config[s.key])}</span>
-            </span>
-            <input
-              type="range"
-              min={s.min} max={s.max} step={s.step}
-              value={config[s.key]}
-              onChange={(e) => setConfig(s.key, Number(e.target.value))}
-            />
-          </label>
+        {SECTIONS.map((sec) => (
+          <div key={sec.title} className="setting-section">
+            <div className="setting-section-title">{sec.title}</div>
+            {sec.rows.map((s) => (
+              <label key={s.key} className="setting-row">
+                <span className="setting-head">
+                  <span className="setting-name">{s.label}</span>
+                  <span className="setting-val">{s.fmt(config[s.key])}</span>
+                </span>
+                <input
+                  type="range"
+                  min={s.min} max={s.max} step={s.step}
+                  value={config[s.key]}
+                  onChange={(e) => setConfig(s.key, Number(e.target.value))}
+                />
+              </label>
+            ))}
+          </div>
         ))}
         <button className="btn-sm settings-reset" onClick={resetConfig}>
           Reset to defaults

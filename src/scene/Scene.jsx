@@ -17,6 +17,7 @@ import { useStore } from '../state/useStore.js';
 
 export function Scene() {
   const sunV15 = useStore((s) => s.sunV15);
+  const ambient = useStore((s) => s.config.ambient);
   return (
     <Canvas
       camera={{ position: [0, 60, 95], fov: 50, near: 0.1, far: 5000 }}
@@ -27,7 +28,7 @@ export function Scene() {
       onContextMenu={(e) => e.preventDefault()}
       style={{ position: 'fixed', inset: 0, background: '#03040a' }}
     >
-      <ambientLight intensity={0.35} color="#404a5c" />
+      <ambientLight intensity={ambient} color="#404a5c" />
       <MilkyWaySkybox />
       <ShootingStars />
       {sunV15 ? <SunV15 /> : <Sun />}

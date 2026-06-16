@@ -107,6 +107,7 @@ export function Moon({ name, moon, parent }) {
   const { camera } = useThree();
   // v1.6: hide this moon when its parent planet is toggled off.
   const parentShown = useStore((s) => s.bodyVisible[moon.parent] !== false);
+  const moonCrater = useStore((s) => s.config.moonCrater);
   const setSelected = useStore((s) => s.setSelected);
   const [hovered, setHovered] = useState(false);
   const [visible, setVisible] = useState(true);
@@ -211,7 +212,7 @@ export function Moon({ name, moon, parent }) {
           // scale) so the terminator catches real shadow on Luna's craters.
           // Luna only — colorful/volcanic moons (Io) look wrong bumped by hue.
           bumpMap={name === 'Luna' ? texture : null}
-          bumpScale={name === 'Luna' ? 0.035 : 0}
+          bumpScale={name === 'Luna' ? moonCrater : 0}
           color={texture ? '#ffffff' : moon.color}
           roughness={0.95}
           metalness={0.0}

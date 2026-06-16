@@ -209,7 +209,14 @@ input[type='date'] {
 
 /* ⚙ Settings drawer — reuses the bodies-panel drawer; adds slider rows. */
 .settings { position: relative; display: inline-flex; }
-.settings-panel { min-width: 240px; }
+.settings-panel { min-width: 240px; max-height: 72vh; overflow-y: auto; }
+.setting-section + .setting-section { margin-top: 6px; }
+.setting-section-title {
+  font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--text-dim); margin: 8px 4px 2px;
+  border-top: 1px solid var(--border); padding-top: 8px;
+}
+.setting-section:first-child .setting-section-title { border-top: none; padding-top: 2px; }
 .setting-row { display: flex; flex-direction: column; gap: 5px; padding: 8px 4px; }
 .setting-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; }
 .setting-name { color: var(--text); }

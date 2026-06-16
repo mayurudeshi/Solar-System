@@ -147,6 +147,8 @@ export function EarthSurface({ radius, spinRef }) {
     mat.uniforms.uCamPos.value.copy(state.camera.position);
     // Sun sits at the world origin in this scene.
     mat.uniforms.uSunPos.value.set(0, 0, 0);
+    // Live-tunable night-side city-lights brightness (⚙ Settings).
+    mat.uniforms.uNightBoost.value = useStore.getState().config.cityLights;
   });
 
   // Earth surface is the spinning mesh (carries the planet's rotation ref).
@@ -183,6 +185,7 @@ const ATMO_FRAG = /* glsl */ `
   precision highp float;
   uniform vec3 uCamPos;
   uniform vec3 uColor;
+  uniform float uMul;   // atmosphere intensity (⚙ Settings)
   varying vec3 vWorldPos;
   varying vec3 vWorldNormal;
   void main() {
@@ -191,7 +194,7 @@ const ATMO_FRAG = /* glsl */ `
     vec3 L = normalize(-vWorldPos); // toward sun at origin
     float fres = pow(1.0 - max(dot(N, V), 0.0), 2.6);   // limb glow
     float sun = clamp(dot(N, L) * 0.5 + 0.5, 0.0, 1.0); // brighter sun-side
-    float a = fres * (0.25 + 0.75 * sun);
+    float a = fres * (0.25 + 0.75 * sun) * uMul;
     gl_FragColor = vec4(uColor * a, a);
   }
 `;
@@ -201,9 +204,12 @@ export function EarthAtmosphere({ radius }) {
   const uniforms = useMemo(() => ({
     uCamPos: { value: new THREE.Vector3() },
     uColor: { value: new THREE.Color('#5fa8ff') },
+    uMul: { value: 1.0 },
   }), []);
   useFrame((state) => {
-    if (matRef.current) matRef.current.uniforms.uCamPos.value.copy(state.camera.position);
+    if (!matRef.current) return;
+    matRef.current.uniforms.uCamPos.value.copy(state.camera.position);
+    matRef.current.uniforms.uMul.value = useStore.getState().config.earthAtmosphere;
   });
   return (
     <mesh>

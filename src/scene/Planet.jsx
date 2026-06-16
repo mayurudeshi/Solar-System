@@ -269,6 +269,7 @@ function SaturnRings({ planetRadius, ringTexture }) {
 // (read pixel values literally) so a grayscale 0.5 means alpha 0.5.
 function EarthClouds({ planetRadius }) {
   const cloudsRef = useRef();
+  const cloudOpacity = useStore((s) => s.config.cloudOpacity);
   const [tex, setTex] = useState(null);
 
   useEffect(() => {
@@ -300,7 +301,7 @@ function EarthClouds({ planetRadius }) {
         color="#ffffff"
         alphaMap={tex}
         transparent
-        opacity={1.0}
+        opacity={cloudOpacity}
         roughness={1.0}
         metalness={0.0}
         depthWrite={false}

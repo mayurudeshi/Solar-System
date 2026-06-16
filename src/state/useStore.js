@@ -5,6 +5,25 @@ import { PLANET_NAMES } from '../data/bodies.js';
 // The Sun is never in this map: it's hardwired ON and has no toggle.
 const ALL_VISIBLE = Object.fromEntries(PLANET_NAMES.map((n) => [n, true]));
 
+// Live-tunable defaults (the ⚙ Settings drawer). Grouped conceptually by
+// section; flat here so setConfig(key,val) stays trivial. Each is read by its
+// component (per-frame for shader uniforms, reactively for props).
+const DEFAULT_CONFIG = {
+  // Sun
+  sunActivity: 0.55,      // 0..1   surface flare density
+  flareBrightness: 1.20,  // 0..3   flare pop intensity
+  coronaScale: 30,        // 12..60 corona sprite size
+  // Earth
+  earthAtmosphere: 1.0,   // 0..3   atmospheric rim glow multiplier
+  cityLights: 2.6,        // 0..6   night-side city-lights brightness
+  cloudOpacity: 1.0,      // 0..1   cloud layer opacity
+  // Moon
+  moonCrater: 0.035,      // 0..0.1 Luna crater relief (bump scale)
+  // General
+  ambient: 0.35,          // 0..1   ambient fill light
+  menuAnimMs: 2000,       // 0..3000 dropdown drawer slide duration
+};
+
 // Two parallel time sources so pause can freeze orbits without freezing
 // spin (MJ's observation: at high speeds, inner planets fly around the
 // sun in <1 sec while their rotations stay invisible; pause should let
@@ -55,16 +74,10 @@ export const useStore = create((set) => ({
   // Settings ⚙ drawer). Components read these each frame and feed their
   // uniforms, so dragging a slider updates the scene live. Extensible: add a
   // key here + a slider in SettingsPanel + read it in the relevant component.
-  config: {
-    sunActivity: 0.55,      // 0..1 — higher = more/denser surface flares
-    flareBrightness: 1.20,  // 0..3 — flare pop intensity
-    coronaScale: 30,        // 12..60 — Sun corona sprite size
-    menuAnimMs: 2000,       // 0..3000 — Bodies/Vantage drawer slide duration
-  },
+  config: { ...DEFAULT_CONFIG },
   setConfig: (key, value) =>
     set((s) => ({ config: { ...s.config, [key]: value } })),
-  resetConfig: () =>
-    set({ config: { sunActivity: 0.55, flareBrightness: 1.20, coronaScale: 30, menuAnimMs: 2000 } }),
+  resetConfig: () => set({ config: { ...DEFAULT_CONFIG } }),
 
   // Sets BOTH epoch sources — user-visible date jump, resyncs spin to orbit.
   setEpochMs: (epochMs) => set({ epochMs, spinEpochMs: epochMs }),
