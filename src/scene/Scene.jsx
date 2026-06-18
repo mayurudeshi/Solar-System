@@ -1,6 +1,7 @@
 import { Canvas } from '@react-three/fiber';
 import { Sun } from './Sun.jsx';
 import { SunV15 } from './sun-v15/SunV15.jsx';
+import { SolarPlasma } from './SolarPlasma.jsx';
 import { Starfield } from './Starfield.jsx';
 import { MilkyWaySkybox } from './MilkyWaySkybox.jsx';
 import { ShootingStars } from './ShootingStars.jsx';
@@ -32,6 +33,7 @@ export function Scene() {
       <MilkyWaySkybox />
       <ShootingStars />
       {sunV15 ? <SunV15 /> : <Sun />}
+      <SolarPlasma />
       <Starfield />
       {PLANET_NAMES.map((name) => (
         <Planet key={name} name={name} body={BODIES[name]} />

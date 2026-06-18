@@ -13,6 +13,10 @@ const DEFAULT_CONFIG = {
   sunActivity: 0.55,      // 0..1   surface flare density
   flareBrightness: 1.20,  // 0..3   flare pop intensity
   coronaScale: 30,        // 12..60 corona sprite size
+  // Sun — HELIOS plasma layer (close-up, LOD-gated)
+  plasmaLoops: 0.6,       // 0..1   coronal-loop plasma density
+  plasmaWind: 0.3,        // 0..1   open-field plume / solar-wind density
+  plasmaEruption: 0.4,    // 0..1   auto-CME eruption frequency
   // Earth
   earthAtmosphere: 1.0,   // 0..3   atmospheric rim glow multiplier
   cityLights: 2.6,        // 0..6   night-side city-lights brightness
@@ -68,6 +72,11 @@ export const useStore = create((set) => ({
   // 60Hz React re-render storm.
   cameraDist: 0,
   setCameraDist: (d) => set({ cameraDist: d }),
+
+  // Fire CME — a nonce the SolarPlasma layer watches; each bump erupts the
+  // active region facing the camera. Lets a button/harness trigger eruptions.
+  cmeNonce: 0,
+  fireCME: () => set((s) => ({ cmeNonce: s.cmeNonce + 1 })),
 
   // v1.5 Sun feature flag — toggles the experimental procedural Sun
   // (particle CMEs + 3D-noise photosphere) in Scene.jsx. Default off

@@ -13,6 +13,11 @@ const SECTIONS = [
     { key: 'sunActivity',     label: 'Activity',         min: 0,  max: 1,  step: 0.01, fmt: (v) => v.toFixed(2) },
     { key: 'flareBrightness', label: 'Flare brightness', min: 0,  max: 3,  step: 0.05, fmt: (v) => v.toFixed(2) },
     { key: 'coronaScale',     label: 'Corona size',      min: 12, max: 60, step: 1,    fmt: (v) => `${Math.round(v)}` },
+    { key: 'plasmaLoops',     label: 'Coronal loops',    min: 0,  max: 1,  step: 0.05, fmt: (v) => v.toFixed(2) },
+    { key: 'plasmaWind',      label: 'Solar wind',       min: 0,  max: 1,  step: 0.05, fmt: (v) => v.toFixed(2) },
+    { key: 'plasmaEruption',  label: 'CME frequency',    min: 0,  max: 1,  step: 0.05, fmt: (v) => v.toFixed(2) },
+  ], buttons: [
+    { label: '☄ Fire CME', action: 'fireCME' },
   ]},
   { icon: '🌍', name: 'Earth', rows: [
     { key: 'earthAtmosphere', label: 'Atmosphere glow',  min: 0,  max: 3,  step: 0.05, fmt: (v) => v.toFixed(2) },
@@ -36,7 +41,7 @@ const SECTIONS = [
   ]},
 ];
 
-function Section({ sec, config, setConfig }) {
+function Section({ sec, config, setConfig, actions }) {
   return (
     <div className="setting-section">
       <div className="setting-section-title">
@@ -57,6 +62,15 @@ function Section({ sec, config, setConfig }) {
           />
         </label>
       ))}
+      {sec.buttons?.map((b) => (
+        <button
+          key={b.label}
+          className="btn-sm setting-action"
+          onClick={() => actions[b.action]?.()}
+        >
+          {b.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -67,6 +81,8 @@ export function SettingsPanel() {
   const config = useStore((s) => s.config);
   const setConfig = useStore((s) => s.setConfig);
   const resetConfig = useStore((s) => s.resetConfig);
+  const fireCME = useStore((s) => s.fireCME);
+  const actions = { fireCME };
 
   // Keep the drawer-animation CSS variable in sync with the menuAnimMs knob.
   useEffect(() => {
@@ -104,12 +120,12 @@ export function SettingsPanel() {
         <div className="settings-grid">
           <div className="settings-col">
             {SECTIONS.slice(0, 3).map((sec) => (
-              <Section key={sec.name} sec={sec} config={config} setConfig={setConfig} />
+              <Section key={sec.name} sec={sec} config={config} setConfig={setConfig} actions={actions} />
             ))}
           </div>
           <div className="settings-col">
             {SECTIONS.slice(3).map((sec) => (
-              <Section key={sec.name} sec={sec} config={config} setConfig={setConfig} />
+              <Section key={sec.name} sec={sec} config={config} setConfig={setConfig} actions={actions} />
             ))}
           </div>
         </div>

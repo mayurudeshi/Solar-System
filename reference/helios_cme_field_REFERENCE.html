@@ -1,0 +1,640 @@
+<!-- Solar CME / plume particle field — three.js r128, self-contained -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>HELIOS — CME Field</title>
+<style>
+  :root{
+    --bg:#04050a;
+    --panel:rgba(10,12,18,0.72);
+    --edge:rgba(255,150,60,0.22);
+    --amber:#ff9b34;
+    --amber-dim:#b9accd;
+    --text:#e8e3da;
+    --hot:#ffd9a0;
+    --red:#ff4530;
+    --mono:"SFMono-Regular",ui-monospace,"Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;color:var(--text);
+    font-family:var(--mono);-webkit-font-smoothing:antialiased;}
+  #stage{position:fixed;inset:0}
+  canvas{display:block}
+  /* vignette + faint scanline atmosphere */
+  #vignette{position:fixed;inset:0;pointer-events:none;
+    background:radial-gradient(120% 120% at 50% 42%,transparent 38%,rgba(0,0,0,0.55) 100%);
+    mix-blend-mode:multiply;}
+  /* ---- console panel ---- */
+  #hud{position:fixed;top:16px;left:16px;width:248px;max-width:calc(100vw - 32px);
+    background:var(--panel);border:1px solid var(--edge);border-radius:10px;
+    backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
+    padding:14px 14px 16px;z-index:5;
+    box-shadow:0 10px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.04);}
+  .title{display:flex;align-items:baseline;gap:8px;margin:0 0 2px;letter-spacing:.14em;}
+  .title b{font-size:13px;color:var(--hot);font-weight:600;}
+  .title span{font-size:9px;color:var(--amber-dim);letter-spacing:.22em;}
+  .sub{font-size:9px;color:var(--amber-dim);letter-spacing:.18em;margin:0 0 12px;
+    border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:10px;}
+  .row{margin:11px 0;}
+  .row label{display:flex;justify-content:space-between;font-size:9.5px;letter-spacing:.13em;
+    color:var(--amber-dim);text-transform:uppercase;margin-bottom:6px;}
+  .row label .val{color:var(--hot);}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:3px;border-radius:3px;
+    background:linear-gradient(90deg,var(--amber),rgba(255,155,52,.15));outline:none;cursor:pointer;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+    background:var(--hot);border:1px solid #2a1c0a;box-shadow:0 0 8px rgba(255,180,90,.7);cursor:pointer;}
+  input[type=range]::-moz-range-thumb{width:13px;height:13px;border:1px solid #2a1c0a;border-radius:50%;
+    background:var(--hot);box-shadow:0 0 8px rgba(255,180,90,.7);cursor:pointer;}
+  .seg{display:flex;gap:4px;margin-top:4px;}
+  .seg button{flex:1;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:6px 0;
+    color:var(--amber-dim);background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);
+    border-radius:6px;cursor:pointer;transition:.15s;text-transform:uppercase;}
+  .seg button.on{color:#1a1208;background:var(--amber);border-color:var(--amber);font-weight:600;}
+  .toggles{display:flex;gap:6px;margin-top:12px;}
+  .toggles button{flex:1;font-family:var(--mono);font-size:9px;letter-spacing:.1em;padding:7px 0;
+    color:var(--amber-dim);background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.09);
+    border-radius:6px;cursor:pointer;transition:.15s;}
+  .toggles button.on{color:var(--hot);border-color:var(--edge);background:rgba(255,150,60,.10);}
+  #fire{width:100%;margin-top:13px;padding:11px 0;font-family:var(--mono);font-weight:600;
+    font-size:11px;letter-spacing:.22em;color:#240a06;cursor:pointer;border-radius:8px;border:none;
+    background:linear-gradient(180deg,#ff6a3d,var(--red));box-shadow:0 0 18px rgba(255,69,48,.45);
+    transition:transform .08s,box-shadow .2s;text-transform:uppercase;}
+  #fire:active{transform:scale(.97);box-shadow:0 0 28px rgba(255,69,48,.8);}
+  .stats{display:flex;justify-content:space-between;margin-top:14px;padding-top:10px;
+    border-top:1px solid rgba(255,255,255,.06);font-size:9px;letter-spacing:.1em;color:var(--amber-dim);}
+  .stats b{color:var(--hot);font-weight:600;}
+  #hint{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:5;
+    font-size:9px;letter-spacing:.18em;color:rgba(185,172,205,.5);text-align:center;pointer-events:none;}
+  #collapse{position:absolute;top:12px;right:12px;width:18px;height:18px;border:none;cursor:pointer;
+    background:transparent;color:var(--amber-dim);font-size:13px;line-height:1;padding:0;}
+  #hud.min .row,#hud.min .toggles,#hud.min #fire,#hud.min .stats,#hud.min .sub{display:none;}
+  #hud.min{width:auto;}
+</style>
+
+<div id="stage"></div>
+<div id="vignette"></div>
+
+<div id="hud">
+  <button id="collapse" title="Collapse">▾</button>
+  <div class="title"><b>HELIOS</b><span>CME FIELD</span></div>
+  <div class="sub">PLASMA EJECTION MONITOR · LIVE</div>
+
+  <div class="row">
+    <label>Eruption freq <span class="val" id="vFreq"></span></label>
+    <input type="range" id="freq" min="0" max="100" value="40">
+  </div>
+  <div class="row">
+    <label>Loop activity <span class="val" id="vLoop"></span></label>
+    <input type="range" id="loop" min="0" max="100" value="60">
+  </div>
+  <div class="row">
+    <label>Solar wind <span class="val" id="vWind"></span></label>
+    <input type="range" id="wind" min="0" max="100" value="30">
+  </div>
+  <div class="row">
+    <label>Gravity <span class="val" id="vGrav"></span></label>
+    <input type="range" id="grav" min="20" max="220" value="120">
+  </div>
+  <div class="row">
+    <label>Plume scale <span class="val" id="vSize"></span></label>
+    <input type="range" id="size" min="40" max="220" value="90">
+  </div>
+
+  <div class="row">
+    <label>Plasma spectrum</label>
+    <div class="seg" id="palette">
+      <button data-p="0" class="on">Solar</button>
+      <button data-p="1">Plasma</button>
+      <button data-p="2">Aurora</button>
+    </div>
+  </div>
+
+  <div class="toggles">
+    <button id="spin" class="on">Auto-orbit</button>
+    <button id="pause">Pause</button>
+  </div>
+
+  <button id="fire">⟳ Fire CME</button>
+
+  <div class="stats">
+    <div>ACTIVE <b id="sCount">0</b></div>
+    <div><b id="sFps">0</b> FPS</div>
+  </div>
+</div>
+
+<div id="hint">DRAG TO ORBIT · SCROLL TO ZOOM</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+const THREE = window.THREE;
+
+// ---------- renderer / scene / camera ----------
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({antialias:true, alpha:false});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x04050a, 1);
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x04050a, 0.018);
+const camera = new THREE.PerspectiveCamera(52, window.innerWidth/window.innerHeight, 0.1, 200);
+
+// orbit state (hand-rolled — OrbitControls isn't bundled in r128)
+const orbit = {radius:4.4, theta:0.6, phi:1.15, autoSpin:true};
+function applyCamera(){
+  const r=orbit.radius, t=orbit.theta, p=Math.max(0.25, Math.min(Math.PI-0.25, orbit.phi));
+  camera.position.set(r*Math.sin(p)*Math.sin(t), r*Math.cos(p), r*Math.sin(p)*Math.cos(t));
+  camera.lookAt(0,0,0);
+}
+
+// ---------- noise (Ashima simplex 3D) shared GLSL ----------
+const NOISE = `
+vec3 mod289(vec3 x){return x-floor(x*(1.0/289.0))*289.0;}
+vec4 mod289(vec4 x){return x-floor(x*(1.0/289.0))*289.0;}
+vec4 permute(vec4 x){return mod289(((x*34.0)+1.0)*x);}
+vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-0.85373472095314*r;}
+float snoise(vec3 v){
+  const vec2 C=vec2(1.0/6.0,1.0/3.0); const vec4 D=vec4(0.0,0.5,1.0,2.0);
+  vec3 i=floor(v+dot(v,C.yyy)); vec3 x0=v-i+dot(i,C.xxx);
+  vec3 g=step(x0.yzx,x0.xyz); vec3 l=1.0-g;
+  vec3 i1=min(g.xyz,l.zxy); vec3 i2=max(g.xyz,l.zxy);
+  vec3 x1=x0-i1+C.xxx; vec3 x2=x0-i2+C.yyy; vec3 x3=x0-D.yyy;
+  i=mod289(i);
+  vec4 p=permute(permute(permute(i.z+vec4(0.0,i1.z,i2.z,1.0))
+        +i.y+vec4(0.0,i1.y,i2.y,1.0))+i.x+vec4(0.0,i1.x,i2.x,1.0));
+  float n_=0.142857142857; vec3 ns=n_*D.wyz-D.xzx;
+  vec4 j=p-49.0*floor(p*ns.z*ns.z);
+  vec4 x_=floor(j*ns.z); vec4 y_=floor(j-7.0*x_);
+  vec4 x=x_*ns.x+ns.yyyy; vec4 y=y_*ns.x+ns.yyyy; vec4 h=1.0-abs(x)-abs(y);
+  vec4 b0=vec4(x.xy,y.xy); vec4 b1=vec4(x.zw,y.zw);
+  vec4 s0=floor(b0)*2.0+1.0; vec4 s1=floor(b1)*2.0+1.0; vec4 sh=-step(h,vec4(0.0));
+  vec4 a0=b0.xzyw+s0.xzyw*sh.xxyy; vec4 a1=b1.xzyw+s1.xzyw*sh.zzww;
+  vec3 p0=vec3(a0.xy,h.x); vec3 p1=vec3(a0.zw,h.y); vec3 p2=vec3(a1.xy,h.z); vec3 p3=vec3(a1.zw,h.w);
+  vec4 norm=taylorInvSqrt(vec4(dot(p0,p0),dot(p1,p1),dot(p2,p2),dot(p3,p3)));
+  p0*=norm.x; p1*=norm.y; p2*=norm.z; p3*=norm.w;
+  vec4 m=max(0.6-vec4(dot(x0,x0),dot(x1,x1),dot(x2,x2),dot(x3,x3)),0.0); m=m*m;
+  return 42.0*dot(m*m,vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
+}
+float fbm(vec3 p){
+  float s=0.0,a=0.5;
+  for(int k=0;k<4;k++){ s+=a*snoise(p); p*=2.02; a*=0.5; }
+  return s;
+}`;
+
+// ---------- the sun (photosphere) ----------
+const SUN_R = 1.0;
+const sunMat = new THREE.ShaderMaterial({
+  uniforms:{ uTime:{value:0}, uTint:{value:new THREE.Vector3(1,0.55,0.18)} },
+  vertexShader:`
+    varying vec3 vPos; varying vec3 vN; varying vec3 vView;
+    void main(){
+      vPos=position; vN=normalize(normalMatrix*normal);
+      vec4 mv=modelViewMatrix*vec4(position,1.0);
+      vView=normalize(-mv.xyz);
+      gl_Position=projectionMatrix*mv;
+    }`,
+  fragmentShader: NOISE + `
+    uniform float uTime; uniform vec3 uTint;
+    varying vec3 vPos; varying vec3 vN; varying vec3 vView;
+    void main(){
+      vec3 q=vPos*2.4;
+      float flow=uTime*0.18;
+      float n=fbm(q+vec3(0.0,flow,0.0));
+      float gran=fbm(q*3.1+vec3(flow*1.7,0.0,flow));
+      float v=clamp(n*0.6+gran*0.5+0.5,0.0,1.0);
+      vec3 deep=vec3(0.42,0.07,0.0);
+      vec3 mid=vec3(0.95,0.30,0.03);
+      vec3 hot=vec3(1.0,0.72,0.22);
+      vec3 peak=vec3(1.0,0.96,0.78);
+      vec3 col=mix(deep,mid,smoothstep(0.15,0.5,v));
+      col=mix(col,hot,smoothstep(0.5,0.78,v));
+      col=mix(col,peak,smoothstep(0.82,0.98,v));
+      col*=uTint*1.05;
+      float limb=pow(max(dot(vN,vView),0.0),0.55);
+      col*=0.55+0.55*limb;
+      gl_FragColor=vec4(col,1.0);
+    }`
+});
+const sun = new THREE.Mesh(new THREE.SphereGeometry(SUN_R, 96, 96), sunMat);
+scene.add(sun);
+
+// corona shell (fresnel rim, additive)
+const coronaMat = new THREE.ShaderMaterial({
+  uniforms:{ uTint:{value:new THREE.Vector3(1.0,0.55,0.2)} },
+  transparent:true, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.FrontSide,
+  vertexShader:`varying vec3 vN; varying vec3 vView;
+    void main(){ vN=normalize(normalMatrix*normal);
+      vec4 mv=modelViewMatrix*vec4(position,1.0); vView=normalize(-mv.xyz);
+      gl_Position=projectionMatrix*mv; }`,
+  fragmentShader:`uniform vec3 uTint; varying vec3 vN; varying vec3 vView;
+    void main(){ float f=pow(1.0-max(dot(vN,vView),0.0),3.4);
+      gl_FragColor=vec4(uTint, f*0.5); }`
+});
+const corona = new THREE.Mesh(new THREE.SphereGeometry(SUN_R*1.4, 48, 48), coronaMat);
+scene.add(corona);
+
+// ---------- starfield ----------
+(function stars(){
+  const N=1400, pos=new Float32Array(N*3), col=new Float32Array(N*3);
+  for(let i=0;i<N;i++){
+    const r=40+Math.random()*60, u=Math.random()*2-1, a=Math.random()*Math.PI*2, s=Math.sqrt(1-u*u);
+    pos[i*3]=r*s*Math.cos(a); pos[i*3+1]=r*u; pos[i*3+2]=r*s*Math.sin(a);
+    const b=0.3+Math.random()*0.7; col[i*3]=b; col[i*3+1]=b; col[i*3+2]=b*(0.9+Math.random()*0.2);
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  g.setAttribute('color',new THREE.BufferAttribute(col,3));
+  const m=new THREE.PointsMaterial({size:0.18,vertexColors:true,transparent:true,opacity:0.8,
+    sizeAttenuation:true,depthWrite:false});
+  const p=new THREE.Points(g,m); p.matrixAutoUpdate=false; scene.add(p);
+})();
+
+// ---------- particle system ----------
+const N = 13000;
+const posArr = new Float32Array(N*3);
+const colArr = new Float32Array(N*3);
+const alphaArr = new Float32Array(N);
+const sizeArr = new Float32Array(N);
+const vel = new Float32Array(N*3);
+const age = new Float32Array(N);
+const life = new Float32Array(N);
+const mode = new Uint8Array(N);      // 0 = loop-bound, 1 = open field/plume, 2 = erupting (CME)
+const regionOf = new Int8Array(N);   // active-region index this particle belongs to, -1 = none
+const active = new Uint8Array(N);
+let cursor = 0;
+
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(posArr,3));
+pGeo.setAttribute('aColor', new THREE.BufferAttribute(colArr,3));
+pGeo.setAttribute('aAlpha', new THREE.BufferAttribute(alphaArr,1));
+pGeo.setAttribute('aSize', new THREE.BufferAttribute(sizeArr,1));
+
+const pMat = new THREE.ShaderMaterial({
+  uniforms:{ uPix:{value:renderer.getPixelRatio()}, uScale:{value:0.9}, uMaxSize:{value:9.0} },
+  transparent:true, blending:THREE.AdditiveBlending, depthWrite:false, depthTest:true,
+  vertexShader:`
+    attribute vec3 aColor; attribute float aAlpha; attribute float aSize;
+    uniform float uPix; uniform float uScale; uniform float uMaxSize;
+    varying vec3 vC; varying float vA;
+    void main(){
+      vC=aColor; vA=aAlpha;
+      vec4 mv=modelViewMatrix*vec4(position,1.0);
+      gl_Position=projectionMatrix*mv;
+      float s=aSize*uScale*uPix*(140.0/max(-mv.z,0.1));
+      gl_PointSize=min(s, uMaxSize*uPix);
+    }`,
+  fragmentShader:`
+    varying vec3 vC; varying float vA;
+    void main(){
+      vec2 c=gl_PointCoord-0.5; float d=length(c);
+      float soft=smoothstep(0.5,0.0,d);
+      float core=pow(soft,2.8);
+      float a=vA*(soft*0.38+core*0.72);
+      if(a<0.01) discard;
+      gl_FragColor=vec4(vC*(0.7+core*0.7), a);
+    }`
+});
+const points = new THREE.Points(pGeo, pMat);
+points.frustumCulled = false;
+scene.add(points);
+
+// ---------- palettes (temperature ramp over particle life) ----------
+const PALETTES = [
+  // Solar
+  [[0.0,1.0,1.0,0.93],[0.12,1.0,0.82,0.38],[0.35,1.0,0.45,0.1],[0.65,0.82,0.16,0.04],[1.0,0.25,0.03,0.02]],
+  // Plasma (blue)
+  [[0.0,0.92,0.98,1.0],[0.15,0.55,0.8,1.0],[0.4,0.25,0.5,1.0],[0.7,0.42,0.2,0.92],[1.0,0.1,0.03,0.28]],
+  // Aurora
+  [[0.0,0.85,1.0,0.92],[0.2,0.32,1.0,0.62],[0.5,0.1,0.88,0.7],[0.75,0.5,0.3,0.95],[1.0,0.1,0.05,0.3]]
+];
+const SUN_TINTS = [ [1.0,0.55,0.18], [0.45,0.6,1.0], [0.3,0.95,0.7] ];
+let palIdx = 0;
+function ramp(t){
+  const P=PALETTES[palIdx]; t=t<0?0:t>1?1:t;
+  for(let i=0;i<P.length-1;i++){
+    const a=P[i], b=P[i+1];
+    if(t<=b[0]){
+      const f=(t-a[0])/Math.max(b[0]-a[0],1e-5);
+      return [a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f, a[3]+(b[3]-a[3])*f];
+    }
+  }
+  const L=P[P.length-1]; return [L[1],L[2],L[3]];
+}
+function setPalette(i){
+  palIdx=i;
+  const t=SUN_TINTS[i];
+  sunMat.uniforms.uTint.value.set(t[0],t[1],t[2]);
+  coronaMat.uniforms.uTint.value.set(t[0],t[1],t[2]);
+}
+
+// ---------- emission helpers ----------
+const tmp = new THREE.Vector3();
+function randUnit(out){
+  const u=Math.random()*2-1, a=Math.random()*Math.PI*2, s=Math.sqrt(1-u*u);
+  out.set(s*Math.cos(a), u, s*Math.sin(a)); return out;
+}
+// random direction inside a cone around `dir` with half-angle `spread`
+const _b1=new THREE.Vector3(), _b2=new THREE.Vector3();
+function coneDir(dir, spread, out){
+  // build basis
+  if(Math.abs(dir.y)<0.95) _b1.set(0,1,0); else _b1.set(1,0,0);
+  _b1.crossVectors(dir,_b1).normalize();
+  _b2.crossVectors(dir,_b1).normalize();
+  const ct=Math.cos(spread), z=ct+(1-ct)*Math.random();
+  const r=Math.sqrt(Math.max(0,1-z*z)), ph=Math.random()*Math.PI*2;
+  out.copy(dir).multiplyScalar(z)
+     .addScaledVector(_b1, r*Math.cos(ph))
+     .addScaledVector(_b2, r*Math.sin(ph)).normalize();
+  return out;
+}
+function emit(px,py,pz, v0,v1,v2, lifespan, m, baseSize, reg){
+  const i=cursor; cursor=(cursor+1)%N;
+  const i3=i*3;
+  posArr[i3]=px; posArr[i3+1]=py; posArr[i3+2]=pz;
+  vel[i3]=v0; vel[i3+1]=v1; vel[i3+2]=v2;
+  age[i]=0; life[i]=lifespan; mode[i]=m; sizeArr[i]=baseSize;
+  regionOf[i]=(reg===undefined?-1:reg); active[i]=1;
+}
+
+// ---------- magnetic field model ----------
+// Plasma in the corona is frozen into the magnetic field and flows ALONG field
+// lines (Lorentz force >> gravity). We approximate the field with magnetic
+// "charges": each active region is a +/- pair (a bipole), buried just under the
+// surface so the field lines arch above it as coronal loops. A weak global
+// dipole gives the open polar field that carries the solar wind / plumes.
+const CDEPTH = 0.86;                 // charges sit below the surface
+const charges = [];                  // {x,y,z,q}
+const regions = [];                  // active regions (bipoles)
+const _ax = new THREE.Vector3();
+
+function makeRegion(centerDir){
+  const c = centerDir ? centerDir.clone().normalize() : randUnit(new THREE.Vector3());
+  if(Math.abs(c.y)>0.9) _ax.set(1,0,0); else _ax.set(0,1,0);
+  _ax.crossVectors(c,_ax).normalize();          // tangent axis to separate footpoints
+  const sep = 0.34+Math.random()*0.26;          // angular footpoint separation
+  const pPos = c.clone().applyAxisAngle(_ax,  sep*0.5).normalize();
+  const nPos = c.clone().applyAxisAngle(_ax, -sep*0.5).normalize();
+  const q = 0.9+Math.random()*0.5;
+  return { c, pPos, nPos, q, erupt:0, acc:0 };
+}
+function rebuildCharges(){
+  charges.length=0;
+  for(const r of regions){
+    charges.push({x:r.pPos.x*CDEPTH, y:r.pPos.y*CDEPTH, z:r.pPos.z*CDEPTH, q: r.q});
+    charges.push({x:r.nPos.x*CDEPTH, y:r.nPos.y*CDEPTH, z:r.nPos.z*CDEPTH, q:-r.q});
+  }
+  // weak global dipole -> open polar field -> solar wind / polar plumes
+  charges.push({x:0, y: CDEPTH, z:0, q: 0.35});
+  charges.push({x:0, y:-CDEPTH, z:0, q:-0.35});
+}
+function initRegions(n){
+  regions.length=0;
+  for(let i=0;i<n;i++) regions.push(makeRegion());
+  rebuildCharges();
+}
+initRegions(3);
+
+// magnetic field B at a point (superposition of monopole contributions)
+const _bv=[0,0,0];
+function field(px,py,pz){
+  let bx=0,by=0,bz=0;
+  for(let i=0;i<charges.length;i++){
+    const c=charges[i];
+    const dx=px-c.x, dy=py-c.y, dz=pz-c.z;
+    let r2=dx*dx+dy*dy+dz*dz; if(r2<0.0025) r2=0.0025;
+    const inv=c.q/(r2*Math.sqrt(r2));
+    bx+=dx*inv; by+=dy*inv; bz+=dz*inv;
+  }
+  _bv[0]=bx; _bv[1]=by; _bv[2]=bz; return _bv;
+}
+
+// ---------- eruptions (a loop destabilizes and ejects) ----------
+const _d=new THREE.Vector3(), _dir=new THREE.Vector3(), _fp=new THREE.Vector3();
+function eruptRegion(idx){
+  const r=regions[idx]; if(!r) return;
+  r.erupt = 0.9+Math.random()*0.4;                 // eruption window (s)
+  // lift the loop off: convert its bound plasma to a coherent radial ejection,
+  // collimated along the region's eruption axis (a flux-rope bubble, not a spray)
+  for(let i=0;i<N;i++){
+    if(!active[i] || regionOf[i]!==idx || mode[i]!==0) continue;
+    const i3=i*3, x=posArr[i3], y=posArr[i3+1], z=posArr[i3+2];
+    const sp=1.6+Math.random()*0.4;
+    // bulk velocity along the single eruption axis (coherent bubble, no fan-open),
+    // plus a small symmetric push away from that axis = self-similar expansion
+    const along = x*r.c.x + y*r.c.y + z*r.c.z;
+    const lx = x-along*r.c.x, ly = y-along*r.c.y, lz = z-along*r.c.z;
+    vel[i3]   = r.c.x*sp + lx*0.18;
+    vel[i3+1] = r.c.y*sp + ly*0.18;
+    vel[i3+2] = r.c.z*sp + lz*0.18;
+    mode[i]=2; age[i]=0; life[i]=3.2+Math.random()*1.4;
+  }
+}
+function eruptFacingRegion(){
+  const cd=new THREE.Vector3().copy(camera.position).normalize();
+  let best=0, bv=-2;
+  for(let i=0;i<regions.length;i++){ const d=regions[i].c.dot(cd); if(d>bv){bv=d;best=i;} }
+  eruptRegion(best);
+}
+
+// ---------- controls / UI ----------
+const el = id => document.getElementById(id);
+const cfg = { freq:0.4, loop:0.6, wind:0.3, grav:1.2, sizeMul:0.9, paused:false };
+function pct(v){ return Math.round(v)+'%'; }
+
+function bind(id, valEl, fn, fmt){
+  const s=el(id); const out=el(valEl);
+  const upd=()=>{ const r=fn(+s.value); if(out) out.textContent=fmt?fmt(s.value):pct(s.value); };
+  s.addEventListener('input', upd); upd();
+}
+bind('freq','vFreq', v=>cfg.freq=v/100);
+bind('loop','vLoop', v=>cfg.loop=v/100);
+bind('wind','vWind', v=>cfg.wind=v/100);
+bind('grav','vGrav', v=>cfg.grav=v/100, v=>(v/100).toFixed(2)+'g');
+bind('size','vSize', v=>{cfg.sizeMul=v/100; pMat.uniforms.uScale.value=cfg.sizeMul; pMat.uniforms.uMaxSize.value=4+cfg.sizeMul*6;}, v=>(v/100).toFixed(2)+'×');
+
+el('palette').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  [...el('palette').children].forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); setPalette(+b.dataset.p);
+});
+el('spin').addEventListener('click', e=>{ orbit.autoSpin=!orbit.autoSpin; e.target.classList.toggle('on',orbit.autoSpin); });
+el('pause').addEventListener('click', e=>{ cfg.paused=!cfg.paused; e.target.classList.toggle('on',cfg.paused); });
+el('fire').addEventListener('click', ()=>{ eruptFacingRegion(); });
+el('collapse').addEventListener('click', ()=>{
+  const h=el('hud'); h.classList.toggle('min');
+  el('collapse').textContent = h.classList.contains('min') ? '▸' : '▾';
+});
+
+// orbit interaction
+let dragging=false, lastX=0, lastY=0;
+const cv=renderer.domElement;
+cv.addEventListener('pointerdown', e=>{ dragging=true; lastX=e.clientX; lastY=e.clientY; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', e=>{
+  if(!dragging) return;
+  orbit.theta -= (e.clientX-lastX)*0.006;
+  orbit.phi   -= (e.clientY-lastY)*0.006;
+  lastX=e.clientX; lastY=e.clientY;
+});
+cv.addEventListener('pointerup', e=>{ dragging=false; });
+cv.addEventListener('wheel', e=>{ e.preventDefault();
+  orbit.radius=Math.max(2.2,Math.min(14, orbit.radius*(1+Math.sign(e.deltaY)*0.08))); }, {passive:false});
+// pinch
+let pinch=0;
+cv.addEventListener('touchmove', e=>{
+  if(e.touches.length===2){
+    const dx=e.touches[0].clientX-e.touches[1].clientX, dy=e.touches[0].clientY-e.touches[1].clientY;
+    const d=Math.hypot(dx,dy);
+    if(pinch) orbit.radius=Math.max(2.2,Math.min(14, orbit.radius*(pinch/d)));
+    pinch=d; e.preventDefault();
+  }
+},{passive:false});
+cv.addEventListener('touchend', ()=>pinch=0);
+
+// ---------- main loop ----------
+let autoTimer = 1.5;
+let last = performance.now(), fpsAcc=0, fpsN=0, fpsShown=0, statTimer=0;
+const colA=pGeo.attributes.aColor, posA=pGeo.attributes.position,
+      alA=pGeo.attributes.aAlpha, szA=pGeo.attributes.aSize;
+
+function step(dt){
+  // sun motion
+  sunMat.uniforms.uTime.value += dt;
+  sun.rotation.y += dt*0.05;
+  corona.rotation.y -= dt*0.02;
+
+  // auto eruptions
+  autoTimer -= dt;
+  const interval = 9.0 - cfg.freq*7.6; // ~1.4s .. 9s between CMEs
+  if(cfg.freq>0.01 && autoTimer<=0 && regions.length){
+    eruptRegion(Math.floor(Math.random()*regions.length));
+    autoTimer = interval*(0.6+Math.random()*0.8);
+  }
+
+  // ----- emission -----
+  // 1) loop-bound plasma streaming up from each active region's + footpoint
+  const loopRate = 430*cfg.loop;
+  for(let ri=0;ri<regions.length;ri++){
+    const r=regions[ri];
+    r.erupt = Math.max(0, r.erupt-dt);
+    if(r.erupt>0){
+      // during eruption the region blasts radial ejecta instead of feeding the loop
+      r.acc += 1600*dt;
+      const en=Math.floor(r.acc); r.acc-=en;
+      for(let k=0;k<en;k++){
+        coneDir(r.c, 0.16, _dir);                  // tight footprint at the eruption site
+        const px=_dir.x, py=_dir.y, pz=_dir.z;
+        const along = px*r.c.x+py*r.c.y+pz*r.c.z;
+        const lx=px-along*r.c.x, ly=py-along*r.c.y, lz=pz-along*r.c.z;
+        const sp=1.6+Math.random()*0.4;
+        emit(px*1.01,py*1.01,pz*1.01,
+             r.c.x*sp+lx*0.18, r.c.y*sp+ly*0.18, r.c.z*sp+lz*0.18,
+             3.0+Math.random()*1.4, 2, 0.6+Math.random()*0.5, ri);
+      }
+      continue;
+    }
+    r.acc += loopRate*dt;
+    const en=Math.floor(r.acc); r.acc-=en;
+    for(let k=0;k<en;k++){
+      coneDir(r.pPos, 0.05, _dir);              // footpoint, slight scatter
+      const spd=0.5+Math.random()*0.3;          // base flow speed (scalar, stored in vel.x)
+      emit(_dir.x*1.01,_dir.y*1.01,_dir.z*1.01, spd,0,0,
+           7.0+Math.random()*2.5, 0, 0.42+Math.random()*0.3, ri);
+    }
+  }
+
+  // 2) open-field plasma -> solar wind & polar plumes (emitted broadly, sorts itself)
+  const windCount = Math.floor(cfg.wind*22);
+  for(let k=0;k<windCount;k++){
+    randUnit(_d);
+    const spd=0.45+Math.random()*0.3;
+    emit(_d.x*1.01,_d.y*1.01,_d.z*1.01, spd,0,0,
+         6.0+Math.random()*2.5, 1, 0.36+Math.random()*0.26, -1);
+  }
+
+  // ----- integrate -----
+  const G=cfg.grav;
+  let count=0;
+  for(let i=0;i<N;i++){
+    if(!active[i]) continue;
+    const i3=i*3;
+    let x=posArr[i3], y=posArr[i3+1], z=posArr[i3+2];
+    const m=mode[i];
+
+    if(m===2){
+      // CME ejecta: ballistic, gravity-bound, frees from the field
+      const r2=x*x+y*y+z*z, r=Math.sqrt(r2);
+      const af=-G/(r2*r+1e-4);
+      vel[i3]+=af*x*dt; vel[i3+1]+=af*y*dt; vel[i3+2]+=af*z*dt;
+      x+=vel[i3]*dt; y+=vel[i3+1]*dt; z+=vel[i3+2]*dt;
+    } else {
+      // frozen-in flow: advect along the magnetic field line
+      const b=field(x,y,z);
+      let bl=Math.sqrt(b[0]*b[0]+b[1]*b[1]+b[2]*b[2])+1e-6;
+      const bx=b[0]/bl, by=b[1]/bl, bz=b[2]/bl;
+      const nr0=Math.sqrt(x*x+y*y+z*z)||1;
+      const align=(bx*x+by*y+bz*z)/nr0;          // +1 = rising, -1 = falling
+      // gravity speeds plasma up as it drains down the loop legs (coronal rain)
+      const s=vel[i3]*(1 + 1.3*Math.max(0,-align)*G);
+      x+=bx*s*dt; y+=by*s*dt; z+=bz*s*dt;
+      posArr[i3]=x; posArr[i3+1]=y; posArr[i3+2]=z;
+    }
+    posArr[i3]=x; posArr[i3+1]=y; posArr[i3+2]=z;
+
+    age[i]+=dt;
+    const t=age[i]/life[i];
+    const nr=Math.sqrt(x*x+y*y+z*z);
+    // retire: aged out, drained back to the surface, or escaped the domain
+    const drained = (m!==2) && nr<1.01 && age[i]>0.25;
+    if(t>=1 || drained || nr>9){ active[i]=0; alphaArr[i]=0; continue; }
+
+    // shading: temperature ramp over the particle's life (cools as it travels)
+    const c=ramp(t);
+    colArr[i3]=c[0]; colArr[i3+1]=c[1]; colArr[i3+2]=c[2];
+    const fin = t<0.05 ? t/0.05 : 1.0;
+    const fout = t>0.6 ? 1.0-(t-0.6)/0.4 : 1.0;
+    const distFade = nr<2.4 ? 1.0 : Math.max(0, 1-(nr-2.4)/4.2);
+    const baseA = m===0 ? 0.55 : (m===2 ? 0.6 : 0.36);
+    alphaArr[i] = baseA*fin*fout*distFade;
+    count++;
+  }
+  posA.needsUpdate=true; colA.needsUpdate=true; alA.needsUpdate=true; szA.needsUpdate=true;
+  return count;
+}
+
+function frame(now){
+  let dt=(now-last)/1000; last=now;
+  if(dt>0.05) dt=0.05;
+
+  if(orbit.autoSpin && !dragging && !cfg.paused) orbit.theta += dt*0.20;
+  applyCamera();
+
+  let count=0;
+  if(!cfg.paused) count=step(dt);
+
+  renderer.render(scene, camera);
+
+  // stats
+  fpsAcc+=dt; fpsN++; statTimer+=dt;
+  if(statTimer>=0.4){
+    fpsShown=Math.round(fpsN/fpsAcc); fpsAcc=0; fpsN=0; statTimer=0;
+    el('sFps').textContent=fpsShown;
+    if(!cfg.paused) el('sCount').textContent=count;
+  }
+  requestAnimationFrame(frame);
+}
+
+// init
+setPalette(0);
+applyCamera();
+// pre-warm: let the loops populate before the first frame so arcs are visible immediately
+for(let w=0; w<90; w++) step(0.033);
+window.addEventListener('resize', ()=>{
+  camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  pMat.uniforms.uPix.value=renderer.getPixelRatio();
+});
+requestAnimationFrame(frame);
+})();
+</script>

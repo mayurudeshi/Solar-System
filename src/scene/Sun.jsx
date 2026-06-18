@@ -725,7 +725,10 @@ export function Sun() {
         )}
       </group>
       <SunProminences />
-      <SunCMEParticles />
+      {/* Old radial burst retired in favor of the HELIOS plasma layer
+          (<SolarPlasma /> in Scene.jsx): magnetic loops + flux-rope CMEs +
+          coronal rain, LOD-gated by camera distance. SunCMEParticles is left
+          defined but unused so the swap is a one-line revert. */}
       <SunCorona />
       <pointLight
         position={[0, 0, 0]}
