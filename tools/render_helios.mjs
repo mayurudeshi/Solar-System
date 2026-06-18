@@ -33,12 +33,13 @@ await setView(20);
 await page.waitForTimeout(4500);
 await page.screenshot({ path: 'C:/Users/Mayur-A/Downloads/_helios_closeup.png' });
 
-// 3) Fire a CME and catch it mid-flight
-await page.evaluate(() => {
-  if (window.__fireCME) window.__fireCME();
-  else window.__solarStore.getState().fireCME();
-});
-await page.waitForTimeout(700);
+// 3) Fire a CME and let the bulb actually develop (particles take ~1.5-2s to
+//    climb to peak reach). Fire twice, ~0.4s apart, for a dense coherent front,
+//    then wait for it to balloon before the shot.
+await page.evaluate(() => { (window.__fireCME || window.__solarStore.getState().fireCME)(); });
+await page.waitForTimeout(400);
+await page.evaluate(() => { (window.__fireCME || window.__solarStore.getState().fireCME)(); });
+await page.waitForTimeout(1600);
 await page.screenshot({ path: 'C:/Users/Mayur-A/Downloads/_helios_cme.png' });
 
 console.log('errors:', errors.length ? errors.join(' | ') : 'none');

@@ -221,7 +221,7 @@ export function createSolarPlasma(THREE, scene, options = {}) {
   }
 
   // ---- emission & eruption ---------------------------------------------
-  const _d = new THREE.Vector3(), _dir = new THREE.Vector3();
+  const _d = new THREE.Vector3(), _dir = new THREE.Vector3(), _vdir = new THREE.Vector3();
   function emit(px, py, pz, v0, v1, v2, lifespan, m, baseSize, reg) {
     const i = cursor; cursor = (cursor + 1) % N;
     const i3 = i * 3;
@@ -235,14 +235,16 @@ export function createSolarPlasma(THREE, scene, options = {}) {
     r.erupt = 0.9 + Math.random() * 0.4;
     for (let i = 0; i < N; i++) {
       if (!activeF[i] || regionOf[i] !== idx || pmode[i] !== 0) continue;
-      const i3 = i * 3, x = posArr[i3], y = posArr[i3 + 1], z = posArr[i3 + 2];
-      const sp = 1.2 + Math.random() * 0.3;        // slower → shorter reach (was 1.6+0.4)
-      const along = x * r.c.x + y * r.c.y + z * r.c.z;
-      const lx = x - along * r.c.x, ly = y - along * r.c.y, lz = z - along * r.c.z;
-      vel[i3] = r.c.x * sp + lx * 0.15;             // slightly thinner column (was 0.18)
-      vel[i3 + 1] = r.c.y * sp + ly * 0.15;
-      vel[i3 + 2] = r.c.z * sp + lz * 0.15;
-      pmode[i] = 2; age[i] = 0; life[i] = 2.2 + Math.random() * 1.0;  // fade sooner (was 3.2+1.4)
+      const i3 = i * 3;
+      const sp = 1.15 + Math.random() * 0.3;        // slower → shorter reach
+      // velocity diverges in a cone around the eruption axis: a narrow neck that
+      // balloons outward. Gravity (toward Sun center) then arcs the off-axis
+      // edges back, rounding the front into a lightbulb rather than a straight cone.
+      coneDir(r.c, 0.15, _dir);
+      vel[i3] = _dir.x * sp;
+      vel[i3 + 1] = _dir.y * sp;
+      vel[i3 + 2] = _dir.z * sp;
+      pmode[i] = 2; age[i] = 0; life[i] = 2.2 + Math.random() * 1.0;  // fade sooner
     }
   }
 
@@ -269,17 +271,16 @@ export function createSolarPlasma(THREE, scene, options = {}) {
       const r = regions[ri];
       r.erupt = Math.max(0, r.erupt - dt);
       if (r.erupt > 0) {
-        r.acc += 1900 * dt * cfg.detail;             // denser core (was 1600)
+        r.acc += 2200 * dt * cfg.detail;             // denser → coherent leading front, not scattered embers
         let en = Math.floor(r.acc); r.acc -= en;
         for (let k = 0; k < en; k++) {
-          coneDir(r.c, 0.085, _dir);                 // tighter origin footprint → dense base of a cone (was 0.16)
+          coneDir(r.c, 0.06, _dir);                  // tight neck at the surface (the bulb's stem)
           const px = _dir.x, py = _dir.y, pz = _dir.z;
-          const along = px * r.c.x + py * r.c.y + pz * r.c.z;
-          const lx = px - along * r.c.x, ly = py - along * r.c.y, lz = pz - along * r.c.z;
-          const sp = 1.2 + Math.random() * 0.3;       // slower → shorter reach (was 1.6+0.4)
+          coneDir(r.c, 0.15, _vdir);                 // velocity fans modestly → necks then balloons into the bulb as it climbs
+          const sp = 1.15 + Math.random() * 0.3;     // slower → shorter reach
           emit(px * 1.01, py * 1.01, pz * 1.01,
-            r.c.x * sp + lx * 0.16, r.c.y * sp + ly * 0.16, r.c.z * sp + lz * 0.16,  // slight fan from tight base = cone (was 0.18)
-            2.0 + Math.random() * 1.0, 2, 0.6 + Math.random() * 0.5, ri);            // fade sooner (was 3.0+1.4)
+            _vdir.x * sp, _vdir.y * sp, _vdir.z * sp,
+            2.0 + Math.random() * 1.0, 2, 0.62 + Math.random() * 0.5, ri);          // fade sooner
         }
         continue;
       }
@@ -333,19 +334,21 @@ export function createSolarPlasma(THREE, scene, options = {}) {
       // CMEs (mode 2) are capped tight so they don't reach Mercury's orbit
       // (~16.9 scene units = ~4.97 sun-radii at sunRadius 3.4). 4.5 keeps them
       // comfortably inside. Loops/wind keep their original 9-radii reach.
-      const maxR = (m === 2) ? 4.5 : 9;
+      // CMEs capped at 4.3 sun-radii (~14.6 units) — Mercury is at ~4.98 radii
+      // (16.9 units), so this keeps a margin. Loops/wind keep their 9-radii reach.
+      const maxR = (m === 2) ? 4.3 : 9;
       if (t >= 1 || drained || nr > maxR) { activeF[i] = 0; alphaArr[i] = 0; continue; }
 
       const c = ramp(t);
       colArr[i3] = c[0]; colArr[i3 + 1] = c[1]; colArr[i3 + 2] = c[2];
       const fin = t < 0.05 ? t / 0.05 : 1.0;
       const fout = t > 0.6 ? 1.0 - (t - 0.6) / 0.4 : 1.0;
-      // CMEs fade out over distance sooner (fully gone by ~nr 4.4) so they don't
-      // streak far out; loops/wind keep the gentler original falloff.
+      // CME: hold the bulb body solid, fade only the leading edge so it dies into
+      // nothing right at the cap (no scattered embers). Loops/wind unchanged.
       const distFade = (m === 2)
-        ? (nr < 1.8 ? 1.0 : Math.max(0, 1 - (nr - 1.8) / 2.6))
+        ? (nr < 2.2 ? 1.0 : Math.max(0, 1 - (nr - 2.2) / 2.1))
         : (nr < 2.4 ? 1.0 : Math.max(0, 1 - (nr - 2.4) / 4.2));
-      const baseA = m === 0 ? 0.55 : (m === 2 ? 0.6 : 0.36);
+      const baseA = m === 0 ? 0.55 : (m === 2 ? 0.78 : 0.36);  // brighter CME → coherent front (was 0.6)
       alphaArr[i] = baseA * fin * fout * distFade * cfg.intensity;
       count++;
     }
