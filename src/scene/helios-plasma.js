@@ -50,7 +50,7 @@ export function createSolarPlasma(THREE, scene, options = {}) {
     center: new THREE.Vector3(0, 0, 0),
     sunRadius: 1,
     particleBudget: 8000,
-    regions: 3,
+    regions: 5,
     palette: [ // temperature ramp over a particle's life: [t, r,g,b]
       [0.00, 1.00, 1.00, 0.93],
       [0.12, 1.00, 0.82, 0.38],
@@ -179,7 +179,9 @@ export function createSolarPlasma(THREE, scene, options = {}) {
     const sep = 0.34 + Math.random() * 0.26;
     const pPos = c.clone().applyAxisAngle(_ax, sep * 0.5).normalize();
     const nPos = c.clone().applyAxisAngle(_ax, -sep * 0.5).normalize();
-    return { c, pPos, nPos, q: 0.9 + Math.random() * 0.5, erupt: 0, acc: 0 };
+    // age/life drive the lifecycle: a region emerges, lives a while, then fades
+    // and respawns elsewhere so activity roams the whole disk (16-36s each).
+    return { c, pPos, nPos, q: 0.9 + Math.random() * 0.5, erupt: 0, acc: 0, age: 0, life: 16 + Math.random() * 20 };
   }
   function rebuildCharges() {
     charges.length = 0;
@@ -249,13 +251,28 @@ export function createSolarPlasma(THREE, scene, options = {}) {
   }
 
   // ---- runtime config / LOD --------------------------------------------
-  const BLOOM = 0.55;   // CME canopy widening rate (tangential push, grows with height)
   const cfg = { loops: 0.6, wind: 0.3, eruptionFreq: 0.4, grav: 1.2, detail: 1, intensity: 0, auto: opt.autoErupt };
   let autoTimer = 2.0;
 
   function step(dt) {
     if (dt > 0.05) dt = 0.05;
     const gate = cfg.intensity * cfg.detail;
+
+    // Region lifecycle: each active region ages; when its life runs out (and it
+    // isn't mid-eruption) it fades and a brand-new one is born at a fresh random
+    // spot. So loops AND eruptions wander across the whole sun over time instead
+    // of camping on a few fixed footpoints. Only churns while the layer is in
+    // view (intensity > 0) so it costs nothing zoomed out.
+    if (cfg.intensity > 0.01) {
+      for (let ri = 0; ri < regions.length; ri++) {
+        const r = regions[ri];
+        r.age += dt;
+        if (r.age > r.life && r.erupt <= 0) {
+          regions[ri] = makeRegion();
+          rebuildCharges();
+        }
+      }
+    }
 
     if (cfg.auto && cfg.intensity > 0.01) {
       autoTimer -= dt;
@@ -316,19 +333,6 @@ export function createSolarPlasma(THREE, scene, options = {}) {
         const r2 = x * x + y * y + z * z, r = Math.sqrt(r2);
         const af = -G / (r2 * r + 1e-4);
         vel[i3] += af * x * dt; vel[i3 + 1] += af * y * dt; vel[i3 + 2] += af * z * dt;
-        // BLOOM: push outward (tangential to the radial line) growing with height,
-        // so the ejecta necks at the anchored base then balloons into a rounded
-        // canopy wider than the neck = the lightbulb head. Pure width: radial
-        // speed is untouched, so reach stays capped (Mercury safe).
-        const inv = 1 / (r || 1);
-        const rx = x * inv, ry = y * inv, rz = z * inv;
-        const vr = vel[i3] * rx + vel[i3 + 1] * ry + vel[i3 + 2] * rz;
-        const tx = vel[i3] - vr * rx, ty = vel[i3 + 1] - vr * ry, tz = vel[i3 + 2] - vr * rz;
-        const tlen = Math.sqrt(tx * tx + ty * ty + tz * tz);
-        if (tlen > 1e-4) {
-          const push = BLOOM * r * dt / tlen;   // grows with height → dome, not straight cone
-          vel[i3] += tx * push; vel[i3 + 1] += ty * push; vel[i3 + 2] += tz * push;
-        }
         x += vel[i3] * dt; y += vel[i3 + 1] * dt; z += vel[i3 + 2] * dt;
       } else {
         const b = field(x, y, z);

@@ -29,7 +29,7 @@ export function SolarPlasma() {
     const plasma = createSolarPlasma(THREE, scene, {
       center: new THREE.Vector3(0, 0, 0),
       sunRadius: SUN_R,
-      particleBudget: 8000,
+      particleBudget: 10000,   // headroom for 5 roaming active regions
     });
     plasma.setPixelRatio(gl.getPixelRatio());
     plasma.setIntensity(0);
