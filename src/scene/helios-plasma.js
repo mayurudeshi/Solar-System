@@ -91,7 +91,7 @@ export function createSolarPlasma(THREE, scene, options = {}) {
         gl_FragColor=vec4(uTint, f*0.5*uOpacity); }`,
   });
   coronaMat.toneMapped = false;
-  const corona = new THREE.Mesh(new THREE.SphereGeometry(1.4, 48, 48), coronaMat);
+  const corona = new THREE.Mesh(new THREE.SphereGeometry(1.3, 48, 48), coronaMat);  // hug the limb closer (was 1.4) → no detached-ring gap
   group.add(corona);
 
   // ---- particle buffers -------------------------------------------------
@@ -249,6 +249,7 @@ export function createSolarPlasma(THREE, scene, options = {}) {
   }
 
   // ---- runtime config / LOD --------------------------------------------
+  const BLOOM = 0.55;   // CME canopy widening rate (tangential push, grows with height)
   const cfg = { loops: 0.6, wind: 0.3, eruptionFreq: 0.4, grav: 1.2, detail: 1, intensity: 0, auto: opt.autoErupt };
   let autoTimer = 2.0;
 
@@ -315,6 +316,19 @@ export function createSolarPlasma(THREE, scene, options = {}) {
         const r2 = x * x + y * y + z * z, r = Math.sqrt(r2);
         const af = -G / (r2 * r + 1e-4);
         vel[i3] += af * x * dt; vel[i3 + 1] += af * y * dt; vel[i3 + 2] += af * z * dt;
+        // BLOOM: push outward (tangential to the radial line) growing with height,
+        // so the ejecta necks at the anchored base then balloons into a rounded
+        // canopy wider than the neck = the lightbulb head. Pure width: radial
+        // speed is untouched, so reach stays capped (Mercury safe).
+        const inv = 1 / (r || 1);
+        const rx = x * inv, ry = y * inv, rz = z * inv;
+        const vr = vel[i3] * rx + vel[i3 + 1] * ry + vel[i3 + 2] * rz;
+        const tx = vel[i3] - vr * rx, ty = vel[i3 + 1] - vr * ry, tz = vel[i3 + 2] - vr * rz;
+        const tlen = Math.sqrt(tx * tx + ty * ty + tz * tz);
+        if (tlen > 1e-4) {
+          const push = BLOOM * r * dt / tlen;   // grows with height → dome, not straight cone
+          vel[i3] += tx * push; vel[i3 + 1] += ty * push; vel[i3 + 2] += tz * push;
+        }
         x += vel[i3] * dt; y += vel[i3 + 1] * dt; z += vel[i3 + 2] * dt;
       } else {
         const b = field(x, y, z);
