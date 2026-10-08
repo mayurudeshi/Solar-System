@@ -1,7 +1,9 @@
 import { Canvas } from '@react-three/fiber';
 import { Sun } from './Sun.jsx';
 import { SunV15 } from './sun-v15/SunV15.jsx';
-import { SolarPlasma } from './SolarPlasma.jsx';
+import { SunActivityDriver } from './sun/SunActivityDriver.jsx';
+import { CoronalLoops } from './sun/CoronalLoops.jsx';
+import { CMEs } from './sun/CMEs.jsx';
 import { Starfield } from './Starfield.jsx';
 import { KuiperBelt } from './KuiperBelt.jsx';
 import { MilkyWaySkybox } from './MilkyWaySkybox.jsx';
@@ -33,8 +35,10 @@ export function Scene() {
       <ambientLight intensity={ambient} color="#404a5c" />
       <MilkyWaySkybox />
       <ShootingStars />
+      <SunActivityDriver />
       {sunV15 ? <SunV15 /> : <Sun />}
-      <SolarPlasma />
+      {!sunV15 && <CoronalLoops />}
+      <CMEs />
       <Starfield />
       <KuiperBelt />
       {PLANET_NAMES.map((name) => (

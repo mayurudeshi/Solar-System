@@ -7,6 +7,7 @@ import { BodyVisibilityPanel } from './ui/BodyVisibilityPanel.jsx';
 import { SettingsPanel } from './ui/SettingsPanel.jsx';
 import { DateScrubber } from './ui/DateScrubber.jsx';
 import { SimDateReadout } from './ui/SimDateReadout.jsx';
+import { SunReadout } from './ui/SunReadout.jsx';
 import { PanPad } from './ui/PanPad.jsx';
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
       </header>
       <InfoPanel />
       <SimDateReadout />
+      <SunReadout />
       <PanPad />
     </ErrorBoundary>
   );

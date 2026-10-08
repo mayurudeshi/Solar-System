@@ -4,10 +4,17 @@ import * as THREE from 'three';
 import { useStore } from '../state/useStore.js';
 import { BODIES } from '../data/bodies.js';
 import { DEG } from '../lib/orbital.js';
+import { SUN_R, sunSpinRotations } from '../sun/sunFrame.js';
+import { sunActivity, MAX_REGIONS, flareIntensity, flareRibbonProgress } from '../sun/activity.js';
+import { SunCorona } from './sun/SunCorona.jsx';
 
-// Sun: textured sphere + corona glow + point light. The Sun is its own
-// light source (planets get lit by the point light), so we use
-// meshBasicMaterial — unlit — for the sphere itself.
+// Sun: photosphere + corona + point light. The Sun is its own light source
+// (planets get lit by the point light), so the photosphere is unlit.
+//
+// v2 (sun rebuild): the surface no longer invents its own flares. Sunspots,
+// bright plage and flare ribbons are all drawn from the shared active-region
+// model (src/sun/activity.js), the same regions that own the coronal loops
+// and launch the CMEs.
 
 function useSunTexture() {
   const [tex, setTex] = useState(null);
@@ -22,169 +29,6 @@ function useSunTexture() {
   return tex;
 }
 
-// Radial-gradient canvas used as a sprite texture. Bright at the center,
-// fades to transparent at the edge. Additive blending paints light onto
-// the dark scene background — gives the Sun a proper corona instead of
-// the previous "pale yellow dot" effect.
-function makeGlowTexture(stops) {
-  const c = document.createElement('canvas');
-  c.width = c.height = 256;
-  const ctx = c.getContext('2d');
-  const g = ctx.createRadialGradient(128, 128, 4, 128, 128, 128);
-  stops.forEach(([offset, color]) => g.addColorStop(offset, color));
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 256, 256);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
-
-// Animated wispy filaments at the limb — real solar prominences are
-// plasma loops following magnetic field lines, glowing red-orange at
-// the chromospheric Hα wavelength. We approximate them as a slightly
-// larger transparent sphere whose alpha is driven by a Fresnel term
-// (grazing-angle visibility only) times an animated noise field, then
-// additive-blended over the photosphere.
-const PROMINENCE_VERTEX = /* glsl */ `
-  varying vec3 vNormalView;
-  varying vec3 vPosView;
-  varying vec2 vUv;
-  void main() {
-    vNormalView = normalize(normalMatrix * normal);
-    vec4 pv = modelViewMatrix * vec4(position, 1.0);
-    vPosView = pv.xyz;
-    vUv = uv;
-    gl_Position = projectionMatrix * pv;
-  }
-`;
-
-const PROMINENCE_FRAGMENT = /* glsl */ `
-  varying vec3 vNormalView;
-  varying vec3 vPosView;
-  varying vec2 vUv;
-  uniform float uTime;
-
-  #define CME_PERIOD     12.0   // seconds between CMEs on a single track
-  #define CME_PEAK_T      1.6   // ramp-up duration to peak brightness
-  #define CME_FADE_T      6.0   // fade duration after peak
-  #define CME_FALLOFF    11.0   // larger = tighter blob; 11 gives each burst
-                                // ~15% of the sphere — visible as a specific
-                                // eruption, not a wraparound glow
-
-  float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-  }
-  float noise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    vec2 u = f * f * (3.0 - 2.0 * f);
-    return mix(
-      mix(hash(i + vec2(0.0, 0.0)), hash(i + vec2(1.0, 0.0)), u.x),
-      mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
-      u.y
-    );
-  }
-  float fbm(vec2 p) {
-    float v = 0.0;
-    float amp = 0.5;
-    for (int i = 0; i < 4; i++) {
-      v += amp * noise(p);
-      p *= 2.0;
-      amp *= 0.5;
-    }
-    return v;
-  }
-
-  // CME contribution: a pseudo-random burst point ramps up over CME_PEAK_T
-  // and fades over CME_FADE_T. Position is deterministic from the cycle
-  // start time so the same cycle always paints the same spot — keeps GPU
-  // and JS in sync without uniforms.
-  float cmePulse(vec2 uv, float cycleStart) {
-    float t = uTime - cycleStart;
-    if (t < 0.0 || t > CME_PEAK_T + CME_FADE_T) return 0.0;
-
-    // Pseudo-random burst location, latitude biased toward equator
-    // (most real CMEs originate from active regions in low/mid latitudes).
-    vec2 cmePos = vec2(
-      hash(vec2(cycleStart, 1.7)),
-      0.30 + 0.40 * hash(vec2(cycleStart, 5.3))
-    );
-
-    // Pulse: sharp attack, slower decay
-    float pulse = t < CME_PEAK_T
-      ? t / CME_PEAK_T
-      : 1.0 - (t - CME_PEAK_T) / CME_FADE_T;
-    pulse = pow(max(0.0, pulse), 1.4);
-
-    // Spatial falloff. Wrap U-distance so a burst near the seam doesn't
-    // hard-cut on one side. V doesn't wrap (poles).
-    vec2 d = uv - cmePos;
-    d.x = d.x - floor(d.x + 0.5);
-    float dist = length(d);
-    float envelope = exp(-dist * CME_FALLOFF);
-
-    // Subtle anisotropic strand — see CME_TRAIL_FRAGMENT rationale.
-    vec2 strandUv = (uv - cmePos) * vec2(65.0, 20.0)
-                  + vec2(uTime * 0.6, hash(vec2(cycleStart, 7.3)) * 17.0);
-    float strand = fbm(strandUv);
-    strand = smoothstep(0.40, 0.75, strand);
-
-    return pulse * envelope * (0.55 + 0.55 * strand);
-  }
-
-  void main() {
-    // View direction in view space (camera at origin, looking down -Z)
-    vec3 viewDir = normalize(-vPosView);
-    float grazing = 1.0 - abs(dot(vNormalView, viewDir));
-    // Strong Fresnel for the wisps — they hug the limb tightly.
-    float fresnelWisp = pow(grazing, 3.0);
-    // SOFTER Fresnel for CMEs — they bloom across more of the visible
-    // hemisphere, not just the razor-thin limb edge. Without this, a
-    // burst's UV center almost always lands somewhere Fresnel kills.
-    float fresnelCme  = pow(grazing, 1.4);
-
-    // Two octaves of drifting fbm — filaments writhe and crawl around the
-    // limb over a few seconds.
-    float n  = fbm(vUv * vec2(28.0, 14.0) + vec2(uTime * 0.18,  0.0));
-    float n2 = fbm(vUv * vec2(60.0, 30.0) + vec2(0.0, uTime * 0.32));
-    float wisp = smoothstep(0.42, 0.85, n * 0.6 + n2 * 0.4);
-
-    float wispAlpha = fresnelWisp * wisp * 0.95;
-    vec3  wispCol   = mix(vec3(1.0, 0.30, 0.10), vec3(1.0, 0.55, 0.20), wisp);
-
-    // Two CME tracks staggered by half-period. Each track fires for ~7.6s
-    // out of every 12s, so usually 1 active, sometimes 2 briefly overlap,
-    // sometimes brief quiet between. Reads as discrete eruptions instead
-    // of a continuous halo (which 3 tracks + wider falloff was producing).
-    float cycleA = floor(uTime / CME_PERIOD) * CME_PERIOD;
-    float cycleB = floor((uTime + CME_PERIOD * 0.5) / CME_PERIOD) * CME_PERIOD
-                   - CME_PERIOD * 0.5;
-    float cme = cmePulse(vUv, cycleA) + cmePulse(vUv, cycleB);
-    cme = min(cme, 1.2);
-
-    // ×1.6 on the INNER sphere — the burst foot. The brighter outer
-    // shells (SunCMETrails) carry most of the visual now, so the inner
-    // contribution can stay subtle: a small bright base where the
-    // eruption foots onto the chromosphere, while the trails do the
-    // outward extension.
-    float cmeAlpha = fresnelCme * cme * 1.6;
-    vec3  cmeCol   = vec3(1.00, 0.96, 0.78);  // near-white, hotter than wisps
-
-    // Pre-multiply for additive blending — each layer contributes
-    // color * alpha to the framebuffer independently.
-    vec3 outColor = wispCol * wispAlpha + cmeCol * cmeAlpha;
-    gl_FragColor  = vec4(outColor, 1.0);
-  }
-`;
-
-// ── Differential rotation shader ─────────────────────────────────────────
-// Real Sun rotates faster at the equator (~24.5 days) than at the poles
-// (~35 days) because it's a plasma, not a solid. We render the photosphere
-// with a custom shader that samples the texture with a U-offset that
-// depends on LATITUDE — so equatorial features visibly outpace polar
-// features as time advances. Period at latitude φ interpolates between
-// the equatorial and polar rates by sin²(φ), which is the standard
-// approximation of the Snodgrass-Ulrich profile to first order.
 const PHOTOSPHERE_VERTEX = /* glsl */ `
   varying vec2 vUv;
   void main() {
@@ -195,117 +39,91 @@ const PHOTOSPHERE_VERTEX = /* glsl */ `
 
 const PHOTOSPHERE_FRAGMENT = /* glsl */ `
   uniform sampler2D uMap;
-  uniform float uTimeDays;   // sim/rotation time (days) — freezes when paused
-  uniform float uFlareTime;  // REAL wall-clock seconds — flares fire regardless
-                             // of rotation/pause/speed (active regions are
-                             // magnetic, independent of the Sun's spin)
-  uniform float uFlareThreshold; // lower = more active regions qualify
-  uniform float uFlareBright;    // flare pop intensity
+  uniform float uRot;             // body-frame spin, fractional rotations
+  uniform float uSimDays;         // sim time (days, wrapped) for surface shimmer
+  uniform float uFlareBright;
   uniform vec3 uTint;
+  // Active regions, body frame. Strength 0 = empty slot.
+  uniform vec4 uRegC[${MAX_REGIONS}];   // centre xyz, half-separation of the spots (rad)
+  uniform vec4 uRegA[${MAX_REGIONS}];   // axis following->leading spot xyz, strength
+  uniform vec4 uRegF[${MAX_REGIONS}];   // flare intensity, ribbon separation 0..1, seed, -
   varying vec2 vUv;
 
-  #define PI 3.14159265358979
-  // SOLID-BODY rotation period. The previous differential-rotation model
-  // (equator 24.47d, poles 34.4d) sheared the static equirectangular
-  // texture latitude-by-latitude; that shear accumulates UNBOUNDED over a
-  // session and inevitably exceeds a full texture width between adjacent
-  // latitudes, painting the surface as severe horizontal bands (MJ's
-  // "wind effect", reproduced + confirmed 2026-06-13 via headless render
-  // at 100x soak). Differential rotation on a STATIC texture always bands
-  // eventually — it's mathematically unavoidable. Since the texture isn't
-  // mapped to real solar features, differential rotation has zero
-  // perceptible upside; uniform rotation eliminates inter-latitude shear
-  // entirely, so the surface can NEVER band regardless of session length.
-  #define ROT_PERIOD_DAYS 25.38   // Carrington sidereal mean
-
-  // Light animated noise overlay — adds subtle surface life (shimmer).
-  // No longer needs to "mask banding" since solid-body rotation can't band.
-  float hashP(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-  }
+  float hashP(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
   float noiseP(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
+    vec2 i = floor(p), f = fract(p);
     vec2 u = f * f * (3.0 - 2.0 * f);
-    return mix(
-      mix(hashP(i + vec2(0.0, 0.0)), hashP(i + vec2(1.0, 0.0)), u.x),
-      mix(hashP(i + vec2(0.0, 1.0)), hashP(i + vec2(1.0, 1.0)), u.x),
-      u.y
-    );
+    return mix(mix(hashP(i), hashP(i + vec2(1.0, 0.0)), u.x),
+               mix(hashP(i + vec2(0.0, 1.0)), hashP(i + vec2(1.0, 1.0)), u.x), u.y);
   }
   float fbmP(vec2 p) {
-    float v = 0.0;
-    float amp = 0.5;
-    for (int i = 0; i < 4; i++) {
-      v += amp * noiseP(p);
-      p *= 2.0;
-      amp *= 0.5;
-    }
+    float v = 0.0, a = 0.5;
+    for (int i = 0; i < 4; i++) { v += a * noiseP(p); p *= 2.0; a *= 0.5; }
     return v;
   }
 
   void main() {
-    // SOLID-BODY rotation: SAME u-offset at every latitude. Because the
-    // offset no longer varies with vUv.y, adjacent latitudes always stay
-    // perfectly aligned — zero shear — so no banding can ever form.
-    // Wrap with mod() into [0,1) period space to keep the float small and
-    // precise even after very long sessions (mod is invisible here because
-    // the offset is uniform across latitudes, so the wrap produces no
-    // discontinuity between rows).
-    float rotations = uTimeDays / ROT_PERIOD_DAYS;
-    float uOffset = -fract(rotations);
-    vec2 sampleUv = vec2(fract(vUv.x + uOffset), vUv.y);
-
+    // Solid-body rotation: uniform U offset, so latitudes never shear/band.
+    vec2 sampleUv = vec2(fract(vUv.x - uRot), vUv.y);
     vec4 col = texture2D(uMap, sampleUv);
 
-    // Subtle animated noise shimmer (8%) for a touch of surface life.
-    vec2 noiseUv = vec2(vUv.x * 8.0, vUv.y * 5.0)
-                 + vec2(uTimeDays * 0.10, uTimeDays * 0.03);
-    float overlay = mix(0.94, 1.06, fbmP(noiseUv));
+    // Body-frame surface normal of this texel (matches sunFrame.latLonToBody).
+    float lon = sampleUv.x * 6.28318530718;
+    float th = 3.14159265359 * (1.0 - sampleUv.y);
+    vec3 n = vec3(-cos(lon) * sin(th), cos(th), sin(lon) * sin(th));
 
-    vec3 surf = col.rgb * uTint * overlay;
+    vec2 noiseUv = vec2(sampleUv.x * 8.0, sampleUv.y * 5.0) + vec2(uSimDays * 0.10, uSimDays * 0.03);
+    vec3 surf = col.rgb * uTint * mix(0.94, 1.06, fbmP(noiseUv));
 
-    // ACTIVE REGIONS / FLARES — bright brightenings scattered across the
-    // WHOLE disc (MJ 2026-06-13: flares should dot the whole surface, not
-    // just the rim, and look natural not like overlay sprites). Done IN the
-    // photosphere shader so they're genuine surface brightening: sampled in
-    // the rotating sampleUv space → they move with the surface, follow its
-    // curvature, and never read as pasted dots. Latitude-weighted toward the
-    // activity belts (~±35°) like the real Sun.
-    float belt = exp(-pow((vUv.y - 0.5) * 3.4, 2.0)); // brightest mid-latitudes
-    // Active-region field: sampled in the rotating sampleUv space (regions sit
-    // on the surface + turn with it) PLUS a slow REAL-TIME drift so the set of
-    // active regions emerges and migrates over time even when the sim is paused.
-    // Without the drift, a frozen Sun shows only the one/two spots that happen
-    // to exceed the threshold, pulsing in place (MJ: "only one spot bottom-left").
-    vec2 fieldUv = sampleUv * vec2(7.0, 4.5) + vec2(3.1, 8.7)
-                 + vec2(uFlareTime * 0.040, uFlareTime * 0.028);
-    float field = fbmP(fieldUv);
-    // each region flashes briefly on its own phase — all on REAL time so they
-    // pop regardless of rotation/pause/speed, scattered across the whole disc.
-    float phase = field * 40.0;
-    float flare = sin(uFlareTime * 6.2831 * 0.45 + phase) * 0.5 + 0.5;
-    flare = pow(flare, 7.0);                            // brief sharp flashes
-    float region = smoothstep(uFlareThreshold, uFlareThreshold + 0.20, field) * flare * belt;
-    // limb-darkening-aware: brighten less at the very edge so it reads as
-    // surface, not a rim sprite. Nudged brighter per MJ (0.85 -> 1.20) —
-    // a touch more pop, still clearly "faint surface flares" not disco.
-    surf += region * vec3(1.0, 0.70, 0.33) * uFlareBright;
+    float darken = 1.0;
+    vec3 add = vec3(0.0);
+    for (int i = 0; i < ${MAX_REGIONS}; i++) {
+      vec4 C = uRegC[i];
+      vec4 A = uRegA[i];
+      float s = A.w;
+      if (s <= 0.0) continue;
+      float h = C.w;
+      if (dot(n, C.xyz) < cos(h * 4.0)) continue;
+      float sh = sin(h);
+      vec3 P = cross(C.xyz, A.xyz);
+      // Local coords in units of the spot half-separation: leading spot at
+      // X=+1, following spot at X=-1, polarity inversion line at X=0.
+      float X = dot(n, A.xyz) / sh;
+      float Y = dot(n, P) / sh;
+      vec4 F = uRegF[i];
+      float nf = fbmP(vec2(X, Y) * 5.0 + F.z * 40.0);
 
-    gl_FragColor = vec4(surf, col.a);
+      // Sunspots: compact round leader, larger fragmented follower.
+      float rad = 0.20 + 0.28 * s;
+      float dL = length(vec2(X - 1.0, Y)) / rad;
+      float dF = length(vec2((X + 1.0) * 0.85, Y)) / (rad * 1.1) + (nf - 0.5) * 0.9;
+      float pen = max(1.0 - smoothstep(0.80, 1.05, dL), 1.0 - smoothstep(0.80, 1.05, dF));
+      float umb = max(1.0 - smoothstep(0.32, 0.48, dL), 1.0 - smoothstep(0.30, 0.46, dF));
+      darken *= (1.0 - 0.45 * pen) * (1.0 - 0.55 * umb);
+
+      // Plage: bright mottled field around the spots (strong in H-alpha).
+      float pl = exp(-(X * X / 3.5 + Y * Y / 1.6)) * s * (0.4 + 0.9 * nf);
+      add += vec3(1.0, 0.72, 0.42) * pl * 0.32 * (1.0 - pen);
+
+      // Flare ribbons: two bright strands parallel to the inversion line that
+      // separate as reconnection proceeds, plus a short-lived kernel glow.
+      float fi = F.x;
+      if (fi > 0.002) {
+        float xr = 0.10 + 0.60 * F.y;
+        float wr = 0.06 + 0.05 * F.y;
+        float rib = exp(-pow((abs(X) - xr) / wr, 2.0)) * (1.0 - smoothstep(0.45, 1.05, abs(Y)));
+        float kern = 0.45 + 1.1 * fbmP(vec2(X * 3.0, Y * 10.0) + F.z * 17.0);
+        float glow = exp(-(X * X + Y * Y) / 0.8) * 0.35;
+        add += vec3(1.0, 0.95, 0.84) * fi * (rib * kern + glow) * uFlareBright;
+      }
+    }
+    gl_FragColor = vec4(surf * darken + add, col.a);
   }
 `;
 
 function Photosphere({ texture, hovered, eventHandlers }) {
   const matRef = useRef();
-  // Snapshot time at first render so we subtract a stable base — keeps
-  // the float32 uniform value small even after the simulation has been
-  // running for a while. Without this, spinEpochMs ≈ 1.7e12 quickly
-  // loses precision in the shader and rotation goes choppy.
-  const refMs = useMemo(() => Date.now(), []);
 
-  // Equirectangular textures need to wrap horizontally so the fract()
-  // U-offset doesn't reveal a seam.
   useEffect(() => {
     if (texture) {
       texture.wrapS = THREE.RepeatWrapping;
@@ -316,38 +134,43 @@ function Photosphere({ texture, hovered, eventHandlers }) {
   const uniforms = useMemo(
     () => ({
       uMap: { value: texture },
-      uTimeDays: { value: 0 },
-      uFlareTime: { value: 0 },
-      uFlareThreshold: { value: 0.63 },
-      uFlareBright: { value: 1.2 },
+      uRot: { value: 0 },
+      uSimDays: { value: 0 },
+      uFlareBright: { value: 1 },
       uTint: { value: new THREE.Color(1, 1, 1) },
+      uRegC: { value: Array.from({ length: MAX_REGIONS }, () => new THREE.Vector4()) },
+      uRegA: { value: Array.from({ length: MAX_REGIONS }, () => new THREE.Vector4()) },
+      uRegF: { value: Array.from({ length: MAX_REGIONS }, () => new THREE.Vector4()) },
     }),
-    [] // create once; we re-bind uMap below if texture changes
+    [] // create once; uMap re-bound below
   );
 
   useEffect(() => {
     uniforms.uMap.value = texture;
   }, [texture, uniforms]);
 
-  useFrame((_, dt) => {
+  useFrame(() => {
     if (!matRef.current) return;
-    const { spinEpochMs, showRotation, slowRotation } = useStore.getState();
-    let deltaMs = showRotation ? spinEpochMs - refMs : 0;
-    if (slowRotation) deltaMs *= 0.1;
-    matRef.current.uniforms.uTimeDays.value = deltaMs / 86400000;
-    // Flares advance on real wall-clock time, always (pause/speed-independent).
-    matRef.current.uniforms.uFlareTime.value += dt;
-    // Live-tunable from the Settings drawer: activity 0..1 maps to threshold
-    // (higher activity = lower threshold = more regions qualify).
-    const cfg = useStore.getState().config;
-    matRef.current.uniforms.uFlareThreshold.value = 0.85 - (cfg.sunActivity ?? 0.55) * 0.40;
-    matRef.current.uniforms.uFlareBright.value = cfg.flareBrightness ?? 1.2;
-    matRef.current.uniforms.uTint.value.set(hovered ? '#fff0e0' : '#ffffff');
+    const st = useStore.getState();
+    const rot = sunSpinRotations(st);
+    uniforms.uRot.value = rot - Math.floor(rot);
+    const t = sunActivity.t ?? 0;
+    uniforms.uSimDays.value = t % 1000;
+    uniforms.uFlareBright.value = st.config.flareBrightness ?? 1;
+    uniforms.uTint.value.set(hovered ? '#fff0e0' : '#ffffff');
+    const regs = sunActivity.regions();
+    for (let i = 0; i < MAX_REGIONS; i++) {
+      const r = regs[i];
+      if (!r || r.s <= 0.01) { uniforms.uRegA.value[i].w = 0; continue; }
+      uniforms.uRegC.value[i].set(r.c[0], r.c[1], r.c[2], r.halfSep);
+      uniforms.uRegA.value[i].set(r.axis[0], r.axis[1], r.axis[2], r.s);
+      uniforms.uRegF.value[i].set(flareIntensity(r.flare, t), flareRibbonProgress(r.flare, t), r.seed, 0);
+    }
   });
 
   return (
     <mesh {...eventHandlers}>
-      <sphereGeometry args={[3.4, 64, 64]} />
+      <sphereGeometry args={[SUN_R, 96, 96]} />
       <shaderMaterial
         ref={matRef}
         uniforms={uniforms}
@@ -355,314 +178,6 @@ function Photosphere({ texture, hovered, eventHandlers }) {
         fragmentShader={PHOTOSPHERE_FRAGMENT}
       />
     </mesh>
-  );
-}
-
-// CME trail shells — concentric transparent spheres OUTSIDE the prominence
-// sphere that render ONLY the CME pulse term. Each shell's Fresnel ring
-// paints the burst at its own radius, so a CME that fires at UV (u,v)
-// shows bright at the limb of every shell at the same azimuth. From the
-// camera's view, these stack as a radial bright streak extending outward
-// from the photosphere — the actual "lift-off" arc you see in LASCO
-// coronagraph footage. Without these, the burst only blooms INWARD
-// because the fresnel falloff bleeds into the prominence-sphere body
-// (which is what MJ spotted 2026-06-12).
-// ── Particle-based CMEs ──────────────────────────────────────────────────
-// Replaces the old concentric "trail shell" approach (MJ 2026-06-13: the
-// 3 stacked spheres read as "too perfect" concentric rings, not realistic).
-// Real CMEs are streams of plasma erupting outward along magnetic field
-// lines — genuinely volumetric, wispy, asymmetric. A particle system is the
-// only honest way to render that; surface shaders on spheres can't.
-//
-// Design for realism (avoiding the v1.5 "white blob" failure):
-//   - Eruptions fire periodically from a random surface point near the limb
-//   - Each eruption EMITS OVER TIME (a stream), not all-at-once (a ball)
-//   - Particles travel radially outward + small cone spread + speed variance
-//     → forms an elongated tendril, not a sphere
-//   - Small points, additive blend, hot-white→orange→transparent by age
-//   - Curl-ish lateral drift so the stream isn't a straight line
-const CME_MAX = 1200;          // particle pool size
-const CME_BURST_PERIOD = 9.0;  // seconds between plume eruptions
-const CME_EMIT_WINDOW = 2.2;   // seconds a plume keeps emitting
-const PLUME_LIFETIME = 4.0;    // plume particle life (stays short of orbits)
-const FLARE_LIFETIME = 1.6;    // flare bloom is brief — pops and vanishes
-const SUN_SURFACE_R = 3.4;
-const ROT_PERIOD_DAYS_CME = 25.38; // must match photosphere ROT_PERIOD_DAYS
-
-function SunCMEParticles() {
-  const pointsRef = useRef();
-  const sim = useRef(null);
-
-  const { geometry, material } = useMemo(() => {
-    const positions = new Float32Array(CME_MAX * 3);
-    const ages = new Float32Array(CME_MAX);   // 0..1 normalized
-    const seeds = new Float32Array(CME_MAX);  // per-particle random
-    const types = new Float32Array(CME_MAX);  // 0 = flare, 1 = plume
-    for (let i = 0; i < CME_MAX; i++) { ages[i] = 1.0; seeds[i] = Math.random(); }
-
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    g.setAttribute('aAge', new THREE.BufferAttribute(ages, 1));
-    g.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
-    g.setAttribute('aType', new THREE.BufferAttribute(types, 1));
-
-    const m = new THREE.ShaderMaterial({
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      uniforms: { uPixelScale: { value: 130 } },
-      vertexShader: /* glsl */ `
-        attribute float aAge;
-        attribute float aSeed;
-        attribute float aType;
-        uniform float uPixelScale;
-        varying float vAge;
-        varying float vType;
-        void main() {
-          vAge = aAge;
-          vType = aType;
-          vec4 mv = modelViewMatrix * vec4(position, 1.0);
-          gl_Position = projectionMatrix * mv;
-          // Flares (type 0): bigger, bloom outward fast → read as bright
-          // surface flashes. Plumes (type 1): smaller, gentle growth.
-          float base = aType < 0.5 ? (4.5 + 5.0 * aSeed) : (1.6 + 2.6 * aSeed);
-          float grow = aType < 0.5 ? (1.0 + 2.2 * aAge) : (1.0 + 1.1 * aAge);
-          gl_PointSize = base * grow * uPixelScale / max(0.001, -mv.z);
-          if (aAge >= 1.0) gl_PointSize = 0.0;
-        }
-      `,
-      fragmentShader: /* glsl */ `
-        varying float vAge;
-        varying float vType;
-        void main() {
-          vec2 d = gl_PointCoord - 0.5;
-          float r = length(d);
-          if (r > 0.5) discard;
-          float soft = smoothstep(0.5, 0.0, r);
-
-          if (vType < 0.5) {
-            // FLARE — a soft surface BRIGHTENING, not a pasted dot. Warm
-            // hot-orange (close to the surface palette so it blends instead
-            // of reading as a yellow sticker), diffuse falloff, modest alpha.
-            // MJ 2026-06-13: "looks like a disco ball / too obvious overlay"
-            // — so: warmer, dimmer, softer-edged, much rarer (freq cut in JS).
-            float life = vAge < 0.30 ? vAge / 0.30 : 1.0 - (vAge - 0.30) / 0.70;
-            life = clamp(life, 0.0, 1.0);
-            float diffuse = pow(soft, 1.5);     // feathered but with a core
-            float alpha = diffuse * life * 0.55;
-            // Bright warm gold at peak so it actually reads against the
-            // surface, fading to orange. Middle ground between the invisible
-            // amber and the disco-ball yellow-white (MJ 2026-06-13).
-            vec3 hot  = vec3(1.0, 0.82, 0.42);  // bright warm gold
-            vec3 cool = vec3(0.98, 0.42, 0.13); // → orange as it fades
-            vec3 col = mix(cool, hot, life);
-            gl_FragColor = vec4(col * alpha, alpha);
-          } else {
-            // PLUME — dim warm orange stream, no white-hot kernel.
-            float life = vAge < 0.35 ? vAge / 0.35 : 1.0 - (vAge - 0.35) / 0.65;
-            life = clamp(life, 0.0, 1.0);
-            float alpha = soft * life * 0.30;
-            vec3 birth = vec3(1.0, 0.50, 0.16);
-            vec3 old   = vec3(0.80, 0.20, 0.07);
-            vec3 col = mix(birth, old, vAge);
-            gl_FragColor = vec4(col * alpha, alpha);
-          }
-        }
-      `,
-    });
-    return { geometry: g, material: m };
-  }, []);
-
-  // CPU sim state
-  useEffect(() => {
-    sim.current = {
-      vel: new Float32Array(CME_MAX * 3),
-      born: new Float32Array(CME_MAX),
-      life: new Float32Array(CME_MAX),   // per-particle lifetime
-      alive: new Uint8Array(CME_MAX),
-      cursor: 0,
-      t: 0,
-      lastBurst: -999,
-      burst: null,
-      prevSpin: null,  // previous spinEpochMs for rotation tracking
-    };
-  }, []);
-
-  // Spawn one particle. type: 0 flare, 1 plume. dir = surface unit vector.
-  const spawn = (s, pos, age, typeArr, type, dir, tA, tB) => {
-    const i = s.cursor;
-    s.cursor = (s.cursor + 1) % CME_MAX;
-    const jitter = type === 0 ? 0.12 : 0.06;
-    pos[i * 3]     = dir.x * SUN_SURFACE_R + (Math.random() - 0.5) * jitter * (tA.x + tB.x);
-    pos[i * 3 + 1] = dir.y * SUN_SURFACE_R + (Math.random() - 0.5) * jitter * (tA.y + tB.y);
-    pos[i * 3 + 2] = dir.z * SUN_SURFACE_R + (Math.random() - 0.5) * jitter * (tA.z + tB.z);
-    let speed, spread;
-    if (type === 0) { speed = 0.05 + Math.random() * 0.10; spread = 0.5; } // flare: tiny pop
-    else            { speed = 0.62 + Math.random() * 0.30; spread = 0.18; } // plume: reach out
-    const a = (Math.random() - 0.5) * spread;
-    const b = (Math.random() - 0.5) * spread;
-    s.vel[i * 3]     = (dir.x + tA.x * a + tB.x * b) * speed;
-    s.vel[i * 3 + 1] = (dir.y + tA.y * a + tB.y * b) * speed;
-    s.vel[i * 3 + 2] = (dir.z + tA.z * a + tB.z * b) * speed;
-    s.born[i] = s.t;
-    s.life[i] = type === 0 ? FLARE_LIFETIME : PLUME_LIFETIME;
-    s.alive[i] = 1;
-    age[i] = 0.0001;
-    typeArr[i] = type;
-  };
-
-  const randDir = () => {
-    const u = Math.random() * 2 - 1;
-    const th = Math.random() * Math.PI * 2;
-    const rr = Math.sqrt(1 - u * u);
-    return new THREE.Vector3(rr * Math.cos(th), u, rr * Math.sin(th));
-  };
-  const tangents = (dir) => {
-    const up = Math.abs(dir.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
-    const tA = new THREE.Vector3().crossVectors(up, dir).normalize();
-    const tB = new THREE.Vector3().crossVectors(dir, tA).normalize();
-    return [tA, tB];
-  };
-
-  useFrame((_, dtRaw) => {
-    const s = sim.current;
-    if (!s || !pointsRef.current) return;
-    const dt = Math.min(dtRaw, 0.05);
-    s.t += dt;
-
-    const pos = geometry.attributes.position.array;
-    const age = geometry.attributes.aAge.array;
-    const typeArr = geometry.attributes.aType.array;
-
-    // NOTE: surface FLARES are now rendered IN the photosphere shader (as
-    // genuine surface brightenings across the whole disc), not as particles.
-    // Particles handle PLUMES only — eruptions that actually leave the
-    // surface, which is the one thing a surface shader can't do. (MJ
-    // 2026-06-13.)
-
-    // ── PERIODIC PLUMES — occasional eruption from one point, emits over a
-    // window to form a stream.
-    if (s.t - s.lastBurst >= CME_BURST_PERIOD) {
-      s.lastBurst = s.t;
-      const dir = randDir();
-      const [tA, tB] = tangents(dir);
-      s.burst = { dir, tA, tB, until: s.t + CME_EMIT_WINDOW };
-    }
-    if (s.burst && s.t <= s.burst.until) {
-      for (let k = 0; k < 6; k++) spawn(s, pos, age, typeArr, 1, s.burst.dir, s.burst.tA, s.burst.tB);
-    }
-
-    // ── ROTATION TRACKING — rotate all alive particles around the Y axis at
-    // the SAME apparent rate as the photosphere texture scroll, so eruptions
-    // stay anchored to the surface spot they came from (MJ ask 2026-06-13).
-    const { spinEpochMs, showRotation, slowRotation } = useStore.getState();
-    if (s.prevSpin === null) s.prevSpin = spinEpochMs;
-    let dSpinMs = showRotation ? (spinEpochMs - s.prevSpin) : 0;
-    if (slowRotation) dSpinMs *= 0.1;
-    s.prevSpin = spinEpochMs;
-    const dDays = dSpinMs / 86400000;
-    // +sign so particles track the SAME visual direction as the photosphere
-    // texture scroll (MJ 2026-06-13: they were drifting the opposite way).
-    const dAngle = 2.0 * Math.PI * dDays / ROT_PERIOD_DAYS_CME;
-    const ca = Math.cos(dAngle), sa = Math.sin(dAngle);
-
-    // Integrate + rotate
-    for (let i = 0; i < CME_MAX; i++) {
-      if (!s.alive[i]) continue;
-      const a = (s.t - s.born[i]) / s.life[i];
-      if (a >= 1.0) { s.alive[i] = 0; age[i] = 1.0; continue; }
-      // radial travel
-      let x = pos[i * 3] + s.vel[i * 3] * dt;
-      let y = pos[i * 3 + 1] + s.vel[i * 3 + 1] * dt;
-      let z = pos[i * 3 + 2] + s.vel[i * 3 + 2] * dt;
-      // rotate around Y to track surface spin
-      if (dAngle !== 0) {
-        const nx = x * ca + z * sa;
-        const nz = -x * sa + z * ca;
-        x = nx; z = nz;
-        // also rotate the velocity vector so motion stays radial-from-spot
-        const vx = s.vel[i * 3], vz = s.vel[i * 3 + 2];
-        s.vel[i * 3] = vx * ca + vz * sa;
-        s.vel[i * 3 + 2] = -vx * sa + vz * ca;
-      }
-      pos[i * 3] = x; pos[i * 3 + 1] = y; pos[i * 3 + 2] = z;
-      age[i] = a;
-    }
-
-    geometry.attributes.position.needsUpdate = true;
-    geometry.attributes.aAge.needsUpdate = true;
-    geometry.attributes.aType.needsUpdate = true;
-  });
-
-  return <points ref={pointsRef} geometry={geometry} material={material} frustumCulled={false} />;
-}
-
-function SunProminences() {
-  const materialRef = useRef();
-  // Stable uniforms object — re-creating per frame would lose GPU state.
-  const uniforms = useMemo(() => ({ uTime: { value: 0 } }), []);
-
-  useFrame((_, dt) => {
-    if (materialRef.current) {
-      materialRef.current.uniforms.uTime.value += dt;
-    }
-  });
-
-  return (
-    <mesh>
-      {/* Larger than the photosphere (3.4) so the prominences AND the
-          CME bursts have room to read as "outside" the surface. Fresnel
-          term clips the central area; the limb is where everything fires.
-          Bumped 3.65 → 3.9 to give CMEs a bit more radial breathing room. */}
-      <sphereGeometry args={[3.9, 80, 80]} />
-      <shaderMaterial
-        ref={materialRef}
-        uniforms={uniforms}
-        vertexShader={PROMINENCE_VERTEX}
-        fragmentShader={PROMINENCE_FRAGMENT}
-        transparent
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-      />
-    </mesh>
-  );
-}
-
-function SunCorona() {
-  const coronaScale = useStore((s) => s.config.coronaScale);
-  // SINGLE smooth-ramp sprite — replaces the previous two-layer stack
-  // that created visible "Saturn-ring" bands and a dark gap in between.
-  // No alpha jumps; every adjacent gradient stop is within ~0.1 alpha of
-  // its neighbor. Sprite is sized so the sphere edge (radius 3.4) sits
-  // at fraction ~0.227 of the sprite half-width (scale 30 → 15 unit
-  // radius), and the bright ramp peaks just outside that.
-  // H-alpha palette — red-orange dominated to match the chromosphere look
-  // (656 nm hydrogen emission). Peak alpha just past the sphere limb, smooth
-  // taper to zero.
-  const glowTex = useMemo(
-    () =>
-      makeGlowTexture([
-        [0.00, 'rgba(255, 200, 150, 0.00)'],
-        [0.15, 'rgba(255, 180, 120, 0.03)'],
-        [0.20, 'rgba(255, 130,  70, 0.12)'],
-        [0.25, 'rgba(255,  90,  40, 0.32)'], // peak red-orange just past limb
-        [0.32, 'rgba(255,  70,  30, 0.22)'],
-        [0.45, 'rgba(220,  50,  20, 0.10)'],
-        [0.65, 'rgba(180,  40,  15, 0.04)'],
-        [1.00, 'rgba(150,  30,  10, 0.00)'],
-      ]),
-    []
-  );
-
-  return (
-    <sprite scale={[coronaScale, coronaScale, 1]}>
-      <spriteMaterial
-        map={glowTex}
-        transparent
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-      />
-    </sprite>
   );
 }
 
@@ -699,11 +214,7 @@ export function Sun() {
 
   return (
     <group>
-      {/* Axial tilt (7.25° to ecliptic) nested as its own group so the
-          differential rotation happens around the Sun's tilted local Y axis.
-          The shader inside Photosphere handles the actual rotation —
-          there's no mesh.rotation.y to set, because each latitude rotates
-          at a different rate. */}
+      {/* Axial tilt (7.25° to ecliptic); the shader does the spin. */}
       <group rotation={[0, 0, BODIES.Sun.axial * DEG]}>
         {texture ? (
           <Photosphere
@@ -719,16 +230,11 @@ export function Sun() {
             onPointerOver={onPointerOver}
             onPointerOut={onPointerOut}
           >
-            <sphereGeometry args={[3.4, 32, 32]} />
+            <sphereGeometry args={[SUN_R, 32, 32]} />
             <meshBasicMaterial color="#ff5530" />
           </mesh>
         )}
       </group>
-      <SunProminences />
-      {/* Old radial burst retired in favor of the HELIOS plasma layer
-          (<SolarPlasma /> in Scene.jsx): magnetic loops + flux-rope CMEs +
-          coronal rain, LOD-gated by camera distance. SunCMEParticles is left
-          defined but unused so the swap is a one-line revert. */}
       <SunCorona />
       <pointLight
         position={[0, 0, 0]}

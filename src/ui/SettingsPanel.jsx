@@ -10,12 +10,12 @@ import { useStore } from '../state/useStore.js';
 // it where it matters. That's the whole contract.
 const SECTIONS = [
   { icon: '☀', name: 'Sun', rows: [
-    { key: 'sunActivity',     label: 'Activity',         min: 0,  max: 1,  step: 0.01, fmt: (v) => v.toFixed(2) },
-    { key: 'flareBrightness', label: 'Flare brightness', min: 0,  max: 3,  step: 0.05, fmt: (v) => v.toFixed(2) },
-    { key: 'coronaScale',     label: 'Corona size',      min: 12, max: 60, step: 1,    fmt: (v) => `${Math.round(v)}` },
-    { key: 'plasmaLoops',     label: 'Coronal loops',    min: 0,  max: 1,  step: 0.05, fmt: (v) => v.toFixed(2) },
-    { key: 'plasmaWind',      label: 'Solar wind',       min: 0,  max: 1,  step: 0.05, fmt: (v) => v.toFixed(2) },
-    { key: 'plasmaEruption',  label: 'CME frequency',    min: 0,  max: 1,  step: 0.05, fmt: (v) => v.toFixed(2) },
+    { key: 'sunCycleScale',    label: 'Activity (1 = real cycle)', min: 0, max: 2, step: 0.05, fmt: (v) => `${v.toFixed(2)}×` },
+    { key: 'flareBrightness',  label: 'Flare brightness', min: 0,  max: 3,  step: 0.05, fmt: (v) => v.toFixed(2) },
+    { key: 'loopBrightness',   label: 'Coronal loops',    min: 0,  max: 3,  step: 0.05, fmt: (v) => v.toFixed(2) },
+    { key: 'cmeBrightness',    label: 'CME brightness',   min: 0,  max: 3,  step: 0.05, fmt: (v) => v.toFixed(2) },
+    { key: 'coronaBrightness', label: 'Corona brightness', min: 0, max: 3,  step: 0.05, fmt: (v) => v.toFixed(2) },
+    { key: 'coronaScale',      label: 'Corona size',      min: 12, max: 60, step: 1,    fmt: (v) => `${Math.round(v)}` },
   ], buttons: [
     { label: '☄ Fire CME', action: 'fireCME' },
   ]},

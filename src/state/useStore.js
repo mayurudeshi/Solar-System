@@ -9,14 +9,14 @@ const ALL_VISIBLE = Object.fromEntries(PLANET_NAMES.map((n) => [n, true]));
 // section; flat here so setConfig(key,val) stays trivial. Each is read by its
 // component (per-frame for shader uniforms, reactively for props).
 const DEFAULT_CONFIG = {
-  // Sun
-  sunActivity: 0.55,      // 0..1   surface flare density
-  flareBrightness: 1.20,  // 0..3   flare pop intensity
-  coronaScale: 30,        // 12..60 corona sprite size
-  // Sun — HELIOS plasma layer (close-up, LOD-gated)
-  plasmaLoops: 0.6,       // 0..1   coronal-loop plasma density
-  plasmaWind: 0.3,        // 0..1   open-field plume / solar-wind density
-  plasmaEruption: 0.4,    // 0..1   auto-CME eruption frequency
+  // Sun (v2 activity model, src/sun/). Physics comes from the solar cycle;
+  // these only scale what's drawn, except sunCycleScale (1 = the real cycle).
+  sunCycleScale: 1.0,     // 0..2   sunspot-number multiplier (region count + flare rate)
+  flareBrightness: 1.0,   // 0..3   flare ribbon brightness
+  coronaScale: 30,        // 12..60 corona extent (scene units, full width)
+  coronaBrightness: 1.0,  // 0..3   corona brightness
+  loopBrightness: 1.0,    // 0..3   coronal loop brightness
+  cmeBrightness: 1.0,     // 0..3   CME brightness
   // Earth
   earthAtmosphere: 1.0,   // 0..3   atmospheric rim glow multiplier
   cityLights: 2.6,        // 0..6   night-side city-lights brightness
@@ -74,10 +74,14 @@ export const useStore = create((set) => ({
   cameraDist: 0,
   setCameraDist: (d) => set({ cameraDist: d }),
 
-  // Fire CME — a nonce the SolarPlasma layer watches; each bump erupts the
-  // active region facing the camera. Lets a button/harness trigger eruptions.
+  // Fire CME — a nonce SunActivityDriver watches; each bump triggers an M/X
+  // flare + CME from the visible region nearest the limb.
   cmeNonce: 0,
   fireCME: () => set((s) => ({ cmeNonce: s.cmeNonce + 1 })),
+
+  // Solar activity summary for the readout, published ~4 Hz by the driver.
+  sunInfo: null,
+  setSunInfo: (sunInfo) => set({ sunInfo }),
 
   // v1.5 Sun feature flag — toggles the experimental procedural Sun
   // (particle CMEs + 3D-noise photosphere) in Scene.jsx. Default off
