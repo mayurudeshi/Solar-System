@@ -3,6 +3,7 @@ import { Sun } from './Sun.jsx';
 import { SunV15 } from './sun-v15/SunV15.jsx';
 import { SolarPlasma } from './SolarPlasma.jsx';
 import { Starfield } from './Starfield.jsx';
+import { KuiperBelt } from './KuiperBelt.jsx';
 import { MilkyWaySkybox } from './MilkyWaySkybox.jsx';
 import { ShootingStars } from './ShootingStars.jsx';
 import { Planet } from './Planet.jsx';
@@ -35,6 +36,7 @@ export function Scene() {
       {sunV15 ? <SunV15 /> : <Sun />}
       <SolarPlasma />
       <Starfield />
+      <KuiperBelt />
       {PLANET_NAMES.map((name) => (
         <Planet key={name} name={name} body={BODIES[name]} />
       ))}

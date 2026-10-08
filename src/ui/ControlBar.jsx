@@ -57,6 +57,8 @@ export function ControlBar() {
   const toggleNaturalLight = useStore((s) => s.toggleNaturalLight);
   const showMoons          = useStore((s) => s.showMoons);
   const toggleMoons        = useStore((s) => s.toggleMoons);
+  const showKuiper         = useStore((s) => s.showKuiper);
+  const toggleKuiper       = useStore((s) => s.toggleKuiper);
   const cameraDist         = useStore((s) => s.cameraDist);
   const vantage            = useStore((s) => s.vantage);
 
@@ -122,6 +124,13 @@ export function ControlBar() {
       >
         <input type="checkbox" checked={showMoons} onChange={toggleMoons} />
         {' '}moons
+      </label>
+      <label
+        className="toggle"
+        title="Kuiper belt: ~7000 icy bodies beyond Neptune on real orbits, incl. Pluto-style 3:2 resonant plutinos."
+      >
+        <input type="checkbox" checked={showKuiper} onChange={toggleKuiper} />
+        {' '}kuiper belt
       </label>
       {/* v1.5 Sun toggle removed from UI per MJ 2026-06-12 — looks blotchy
           + cartoonish + still has the rotation-banding problem. v1.5 code

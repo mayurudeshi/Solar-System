@@ -62,6 +62,7 @@ export const useStore = create((set) => ({
   slowRotation: false,
   naturalLight: false,     // false = uniform illumination (clarity); true = physical inverse-square falloff
   showMoons: true,         // master switch; LOD still hides them when far from parent
+  showKuiper: true,        // Kuiper belt particle field beyond Neptune
 
   // v1.6 — per-planet visibility. Hiding a planet hides its mesh, orbit,
   // apsis markers, and moons as one unit. Sun is always visible (not here).
@@ -152,6 +153,7 @@ export const useStore = create((set) => ({
   toggleSlowRotation: ()              => set((s) => ({ slowRotation: !s.slowRotation })),
   toggleNaturalLight: ()              => set((s) => ({ naturalLight: !s.naturalLight })),
   toggleMoons:        ()              => set((s) => ({ showMoons: !s.showMoons })),
+  toggleKuiper:       ()              => set((s) => ({ showKuiper: !s.showKuiper })),
 }));
 
 // Dev hook — expose the store on window so the headless render harness
