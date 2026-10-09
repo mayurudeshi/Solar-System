@@ -1,4 +1,4 @@
-import { useStore } from '../state/useStore.js';
+import { useStore, SUN_WATCH_SPEED } from '../state/useStore.js';
 
 // Space-weather readout for the Sun vantage: where we are in the solar
 // cycle, the latest flare + CME, and any CME headed for (or hitting) Earth.
@@ -14,7 +14,13 @@ export function SunReadout() {
   const vantage = useStore((s) => s.vantage);
   const info = useStore((s) => s.sunInfo);
   const epochMs = useStore((s) => Math.floor(s.epochMs / 60000) * 60000);
+  const paused = useStore((s) => s.paused);
+  const speed = useStore((s) => s.speed);
+  const watchSun = useStore((s) => s.watchSun);
   if (vantage !== 'sun' || !info) return null;
+  // Everything on the Sun runs on sim time. At 1x (a day per second) a flare
+  // is a blink and a CME crosses the frame in a fraction of a second.
+  const watching = !paused && speed <= SUN_WATCH_SPEED * 2;
   const eta = info.earthETA && info.earthETA.epochMs > epochMs ? info.earthETA : null;
   const hit = info.earthImpact && epochMs - info.earthImpact.epochMs < 3 * 86400000 ? info.earthImpact : null;
   return (
@@ -29,6 +35,11 @@ export function SunReadout() {
       </div>
       {eta && <div className="sr-warn">CME → Earth, ETA {fmt(eta.epochMs)} UTC at ~{eta.kms} km/s</div>}
       {hit && <div className="sr-hit">CME hit Earth {fmt(hit.epochMs)} UTC at ~{hit.kms} km/s</div>}
+      {!watching && (
+        <button className="sr-watch" onClick={watchSun}>
+          {paused ? 'Sun is frozen while paused · ' : 'Too fast to see flares · '}watch at {SUN_WATCH_SPEED}×
+        </button>
+      )}
     </aside>
   );
 }

@@ -34,6 +34,12 @@ const DEFAULT_CONFIG = {
   menuAnimMs: 2000,       // 0..3000 dropdown drawer slide duration
 };
 
+// Sim speed (sim days per real second) at which solar activity is watchable:
+// a C/M flare's decay takes ~2 s, a 1000 km/s CME takes ~2.4 s to climb from
+// the surface to 4 solar radii, and a C-class-or-bigger flare comes every
+// ~20 s at today's cycle-25 activity.
+export const SUN_WATCH_SPEED = 0.01;
+
 // Two parallel time sources so pause can freeze orbits without freezing
 // spin (MJ's observation: at high speeds, inner planets fly around the
 // sun in <1 sec while their rotations stay invisible; pause should let
@@ -75,9 +81,19 @@ export const useStore = create((set) => ({
   setCameraDist: (d) => set({ cameraDist: d }),
 
   // Fire CME — a nonce SunActivityDriver watches; each bump triggers an M/X
-  // flare + CME from the visible region nearest the limb.
+  // flare + CME from the visible region nearest the limb. It also drops the
+  // (global) clock to the Sun-watching speed: fired while paused the CME
+  // would hang frozen, at 1x it is gone in a blink.
   cmeNonce: 0,
-  fireCME: () => set((s) => ({ cmeNonce: s.cmeNonce + 1 })),
+  fireCME: () => set((s) => ({
+    cmeNonce: s.cmeNonce + 1,
+    paused: false,
+    speed: s.speed > SUN_WATCH_SPEED * 2 ? SUN_WATCH_SPEED : s.speed,
+  })),
+  // "Watch the Sun": run the whole sim at a speed where flares and CMEs
+  // unfold over seconds (the pace of an SDO time-lapse). Global clock, so
+  // nothing desyncs.
+  watchSun: () => set({ paused: false, speed: SUN_WATCH_SPEED }),
 
   // Solar activity summary for the readout, published ~4 Hz by the driver.
   sunInfo: null,

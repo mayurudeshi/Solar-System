@@ -67,11 +67,17 @@ export function sceneRadiusOfR(rSun) {
   return auToSceneUnits(rAU) + (SUN_R - SURF_RAW) * Math.exp(-(rAU - R_SUN_AU) / CORR_DECAY_AU);
 }
 
-// Pure additive light that leaves the canvas alpha untouched. The canvas is
-// transparent and part of the starry background is page CSS behind it; plain
-// AdditiveBlending also adds to destination ALPHA, which made every glow layer
-// punch an opaque black box over that background. Shaders using this should
-// write premultiplied light in rgb.
+// Additive light over a transparent canvas. Part of the starry background is
+// page CSS behind the canvas, and the browser composites the canvas as
+// PREMULTIPLIED alpha, so every pixel must satisfy rgb <= alpha:
+//   - plain AdditiveBlending gives the whole quad alpha 1 and punches an opaque
+//     black box over the CSS stars;
+//   - leaving alpha at 0 under added light is invalid premultiplied data that
+//     some GPU/compositor paths clamp to black, so every glow beyond the solar
+//     disk (corona, off-limb loops, CMEs) silently vanishes.
+// Shaders using this write light in rgb and LIGHT_ALPHA(rgb) in alpha; alpha
+// adds too, and since a sum of maxima >= the max of sums, rgb <= alpha holds
+// after any number of layers. Faint glow barely dims the stars behind it.
 export function makeLightAdditive(material) {
   material.transparent = true;
   material.depthWrite = false;
@@ -79,10 +85,15 @@ export function makeLightAdditive(material) {
   material.blendEquation = THREE.AddEquation;
   material.blendSrc = THREE.OneFactor;
   material.blendDst = THREE.OneFactor;
-  material.blendSrcAlpha = THREE.ZeroFactor;
+  material.blendSrcAlpha = THREE.OneFactor;
   material.blendDstAlpha = THREE.OneFactor;
   return material;
 }
+
+// GLSL: final fragment for makeLightAdditive materials.
+export const LIGHT_OUT_GLSL = /* glsl */ `
+  vec4 lightOut(vec3 c) { c = max(c, vec3(0.0)); return vec4(c, max(max(c.r, c.g), c.b)); }
+`;
 
 export const SCENE_OF_R_GLSL = /* glsl */ `
   float sceneOfR(float rSun) {

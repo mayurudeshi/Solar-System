@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useStore } from '../../state/useStore.js';
-import { SCENE_OF_R_GLSL, AU_KM, R_SUN_KM, makeLightAdditive } from '../../sun/sunFrame.js';
+import { SCENE_OF_R_GLSL, AU_KM, R_SUN_KM, makeLightAdditive, LIGHT_OUT_GLSL } from '../../sun/sunFrame.js';
 import { sunActivity, MAX_CMES, cmeFrontR } from '../../sun/activity.js';
 
 // Coronal mass ejections, rendered on the GPU from the shared activity model.
@@ -62,7 +62,7 @@ const VERT = /* glsl */ `
     // Sprite size tracks the CME's lateral extent so neighbours overlap into a
     // continuous cloud instead of reading as dots.
     float lateral = max(sc - 3.0, 0.9) * hw;
-    float k = aType < 0.5 ? 0.20 : (aType < 1.5 ? 0.30 : (aType < 2.5 ? 0.22 : 0.10));
+    float k = aType < 0.5 ? 0.34 : (aType < 1.5 ? 0.45 : (aType < 2.5 ? 0.32 : 0.16));
     float world = lateral * k + 0.06;
     float px = clamp(world * uProj / max(-mv.z, 0.1), 1.0, 48.0);
     // Fill-rate control: big overlapping sprites need far fewer particles to
@@ -86,6 +86,7 @@ const VERT = /* glsl */ `
 const FRAG = /* glsl */ `
   varying float vA;
   varying float vType;
+  ${LIGHT_OUT_GLSL}
   void main() {
     vec2 c = gl_PointCoord - 0.5;
     float r2 = dot(c, c) * 4.0;
@@ -94,7 +95,7 @@ const FRAG = /* glsl */ `
     vec3 col = vType > 1.5 && vType < 2.5 ? vec3(1.0, 0.42, 0.36)
              : vType > 2.5 ? vec3(1.0, 0.78, 0.55)
              : vec3(1.0, 0.92, 0.80);
-    gl_FragColor = vec4(col * g * vA * 0.075, 1.0);
+    gl_FragColor = lightOut(col * g * vA * 0.03);
   }
 `;
 

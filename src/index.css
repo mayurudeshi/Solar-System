@@ -193,6 +193,16 @@ input[type='date'] {
 .sun-readout .sr-title { color: var(--text); }
 .sun-readout .sr-warn { color: #ffb36b; }
 .sun-readout .sr-hit { color: #ff7a6b; }
+.sun-readout .sr-watch {
+  pointer-events: auto;
+  display: block; margin-top: 5px; padding: 3px 8px;
+  font: inherit; color: #ffd29a; cursor: pointer;
+  background: rgba(255, 160, 60, 0.12);
+  border: 1px solid rgba(255, 170, 80, 0.45);
+  border-radius: 4px;
+  touch-action: manipulation;
+}
+.sun-readout .sr-watch:hover { background: rgba(255, 160, 60, 0.24); }
 @media (max-width: 700px) {
   .sun-readout { font-size: 10px; bottom: 44px; left: 8px; max-width: calc(100vw - 170px); }
 }

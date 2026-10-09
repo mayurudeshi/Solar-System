@@ -2,7 +2,7 @@ import { useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useStore } from '../../state/useStore.js';
-import { SUN_R, SUN_POLE_WORLD, sunBodyMatrix, makeLightAdditive } from '../../sun/sunFrame.js';
+import { SUN_R, SUN_POLE_WORLD, sunBodyMatrix, makeLightAdditive, LIGHT_OUT_GLSL } from '../../sun/sunFrame.js';
 import { sunActivity, MAX_REGIONS } from '../../sun/activity.js';
 
 // The corona as a camera-facing billboard, shaded per pixel by the ray's
@@ -43,6 +43,7 @@ const FRAG = /* glsl */ `
   uniform vec3 uCamUp;
   uniform vec4 uReg[${MAX_REGIONS}];   // world dir xyz, strength
   varying vec3 vWorld;
+  ${LIGHT_OUT_GLSL}
 
   float h1(float x) { return fract(sin(x * 127.1) * 43758.5453); }
   float n1(float x) { float i = floor(x), f = fract(x); return mix(h1(i), h1(i + 1.0), f * f * (3.0 - 2.0 * f)); }
@@ -86,7 +87,7 @@ const FRAG = /* glsl */ `
     float chrom = exp(-(rho - 1.0) / 0.012) * (0.6 + 0.6 * n1(psi * 420.0));
     col += vec3(1.0, 0.28, 0.12) * chrom * 0.9;
 
-    gl_FragColor = vec4(col * uBright, 1.0);
+    gl_FragColor = lightOut(col * uBright);
   }
 `;
 
